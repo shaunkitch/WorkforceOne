@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowLeft, Shield, LogOut, Plus, MapPin, Clock, User, CheckCircle, Circle, Play, Square } from 'lucide-react'
+import { ArrowLeft, Shield, LogOut, Plus, MapPin, Clock, User, CheckCircle, Circle, Play, Square, Route, UserCheck, Activity } from 'lucide-react'
 
 export default function PatrolsPage() {
   const { user, loading, signOut } = useAuth()
@@ -141,10 +141,26 @@ export default function PatrolsPage() {
               Monitor and manage security patrol activities and routes.
             </p>
           </div>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Patrol
-          </Button>
+          <div className="flex space-x-3">
+            <Link href="/dashboard/patrols/live">
+              <Button variant="outline">
+                <Activity className="h-4 w-4 mr-2" />
+                Live Tracking
+              </Button>
+            </Link>
+            <Link href="/dashboard/patrols/routes">
+              <Button variant="outline">
+                <Route className="h-4 w-4 mr-2" />
+                Manage Routes
+              </Button>
+            </Link>
+            <Link href="/dashboard/patrols/assign">
+              <Button>
+                <UserCheck className="h-4 w-4 mr-2" />
+                Assign Patrol
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Statistics Cards */}

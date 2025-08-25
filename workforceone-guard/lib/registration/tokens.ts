@@ -11,7 +11,7 @@ export interface RegistrationToken {
   usage_limit?: number
   usage_count: number
   is_active: boolean
-  metadata?: any
+  metadata?: Record<string, any>
   created_by: string
   created_at: string
 }
@@ -24,7 +24,7 @@ export interface CreateTokenData {
   expires_in_hours?: number
   usage_limit?: number
   created_by: string
-  metadata?: any
+  metadata?: Record<string, any>
 }
 
 export class RegistrationTokenService {
@@ -46,56 +46,19 @@ export class RegistrationTokenService {
   // Create a new registration token
   static async createToken(data: CreateTokenData): Promise<{ success: boolean; token?: RegistrationToken; error?: string }> {
     try {
-      let token: string
+      const response = await fetch('/api/registration/tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
 
-      if (data.token_type === 'access_code') {
-        // Generate unique 5-letter code
-        let attempts = 0
-        do {
-          token = this.generateAccessCode()
-          const { data: existing } = await supabase
-            .from('registration_tokens')
-            .select('id')
-            .eq('token', token)
-            .single()
-          
-          if (!existing) break
-          attempts++
-        } while (attempts < 10)
+      const result = await response.json()
 
-        if (attempts >= 10) {
-          return { success: false, error: 'Unable to generate unique access code' }
-        }
-      } else {
-        token = this.generateQRToken()
+      if (!response.ok) {
+        return { success: false, error: result.error || 'Failed to create token' }
       }
 
-      const expiresAt = data.expires_in_hours 
-        ? new Date(Date.now() + data.expires_in_hours * 60 * 60 * 1000).toISOString()
-        : null
-
-      const { data: tokenData, error } = await supabase
-        .from('registration_tokens')
-        .insert({
-          organization_id: data.organization_id,
-          token,
-          token_type: data.token_type,
-          role_id: data.role_id,
-          department_id: data.department_id,
-          expires_at: expiresAt,
-          usage_limit: data.usage_limit,
-          created_by: data.created_by,
-          metadata: data.metadata || {}
-        })
-        .select()
-        .single()
-
-      if (error) {
-        console.error('Token creation error:', error)
-        return { success: false, error: error.message }
-      }
-
-      return { success: true, token: tokenData }
+      return { success: true, token: result.token }
     } catch (error) {
       console.error('Error in createToken:', error)
       return { success: false, error: 'Failed to create registration token' }
@@ -105,24 +68,15 @@ export class RegistrationTokenService {
   // Get all active tokens for an organization
   static async getOrganizationTokens(organizationId: string): Promise<RegistrationToken[]> {
     try {
-      const { data, error } = await supabase
-        .from('registration_tokens')
-        .select(`
-          *,
-          role:role_id (name),
-          department:department_id (name),
-          creator:created_by (first_name, last_name)
-        `)
-        .eq('organization_id', organizationId)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
+      const response = await fetch(`/api/registration/tokens?organization_id=${organizationId}`)
+      const result = await response.json()
 
-      if (error) {
-        console.error('Error fetching tokens:', error)
+      if (!response.ok) {
+        console.error('Error fetching tokens:', result.error)
         return []
       }
 
-      return data || []
+      return result.tokens || []
     } catch (error) {
       console.error('Error in getOrganizationTokens:', error)
       return []
@@ -168,12 +122,7 @@ export class RegistrationTokenService {
   // Use a token (increment usage count)
   static async useToken(tokenId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
-        .from('registration_tokens')
-        .update({
-          usage_count: supabase.rpc('increment_usage_count', { token_id: tokenId })
-        })
-        .eq('id', tokenId)
+      const { error } = await supabase.rpc('increment_usage_count', { token_id: tokenId })
 
       if (error) {
         console.error('Error using token:', error)
@@ -190,14 +139,16 @@ export class RegistrationTokenService {
   // Deactivate a token
   static async deactivateToken(tokenId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
-        .from('registration_tokens')
-        .update({ is_active: false })
-        .eq('id', tokenId)
+      const response = await fetch(`/api/registration/tokens/${tokenId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: false })
+      })
 
-      if (error) {
-        console.error('Error deactivating token:', error)
-        return { success: false, error: error.message }
+      const result = await response.json()
+
+      if (!response.ok) {
+        return { success: false, error: result.error || 'Failed to deactivate token' }
       }
 
       return { success: true }
@@ -217,7 +168,7 @@ export class RegistrationTokenService {
       last_name: string
       phone?: string
     }
-  ): Promise<{ success: boolean; user?: any; error?: string }> {
+  ): Promise<{ success: boolean; user?: { id: string; email: string }; error?: string }> {
     try {
       // Validate the token
       const tokenResult = await this.validateToken(token)

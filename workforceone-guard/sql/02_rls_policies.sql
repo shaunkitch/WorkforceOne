@@ -190,10 +190,37 @@ CREATE POLICY "System can insert activity logs" ON activity_logs
   FOR INSERT WITH CHECK (organization_id = get_current_organization_id());
 
 -- Registration Tokens: Organization admins only
-CREATE POLICY "Admins can manage registration tokens" ON registration_tokens
-  FOR ALL USING (
-    organization_id = get_current_organization_id() 
-    AND user_has_permission('registration', 'manage')
+CREATE POLICY "Admins can read registration tokens" ON registration_tokens
+  FOR SELECT USING (
+    organization_id IN (
+      SELECT organization_id FROM users WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Admins can create registration tokens" ON registration_tokens
+  FOR INSERT WITH CHECK (
+    organization_id IN (
+      SELECT organization_id FROM users WHERE id = auth.uid()
+    ) AND 
+    created_by = auth.uid()
+  );
+
+CREATE POLICY "Admins can update registration tokens" ON registration_tokens
+  FOR UPDATE USING (
+    organization_id IN (
+      SELECT organization_id FROM users WHERE id = auth.uid()
+    )
+  ) WITH CHECK (
+    organization_id IN (
+      SELECT organization_id FROM users WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Admins can delete registration tokens" ON registration_tokens
+  FOR DELETE USING (
+    organization_id IN (
+      SELECT organization_id FROM users WHERE id = auth.uid()
+    )
   );
 
 -- =============================================================================
@@ -421,6 +448,11 @@ CREATE POLICY "Service role has full access" ON registration_tokens
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('incident-attachments', 'incident-attachments', true)
 ON CONFLICT (id) DO NOTHING;
+
+-- Drop existing storage policies to avoid conflicts
+DROP POLICY IF EXISTS "Users can upload incident attachments" ON storage.objects;
+DROP POLICY IF EXISTS "Users can view incident attachments" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own incident attachments" ON storage.objects;
 
 -- Users can upload files to their organization's folder
 CREATE POLICY "Users can upload incident attachments"

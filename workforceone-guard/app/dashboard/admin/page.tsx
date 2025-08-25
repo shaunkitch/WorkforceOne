@@ -435,6 +435,46 @@ export default function AdminConsolePage() {
                   </div>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Key className="h-4 w-4 mr-2" />
+                    Guard Registration
+                  </CardTitle>
+                  <CardDescription>Manage registration tokens for new guards</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">Registration Tokens</p>
+                        <p className="text-sm text-gray-600">Create QR codes and access codes for new guards</p>
+                      </div>
+                      <Link href="/dashboard/admin/tokens">
+                        <Button size="sm">
+                          <QrCode className="h-3 w-3 mr-1" />
+                          Manage
+                        </Button>
+                      </Link>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">5-Letter Codes</p>
+                        <p className="text-sm text-gray-600">Easy-to-share access codes</p>
+                      </div>
+                      <Badge variant="secondary">Available</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">QR Code Registration</p>
+                        <p className="text-sm text-gray-600">Instant mobile registration</p>
+                      </div>
+                      <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>
