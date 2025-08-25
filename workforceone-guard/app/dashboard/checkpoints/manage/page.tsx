@@ -40,7 +40,9 @@ export default function CheckpointManagePage() {
   const [checkpoints, setCheckpoints] = useState<Location[]>([])
   const [loadingData, setLoadingData] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
   const [showViewDialog, setShowViewDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [selectedCheckpoint, setSelectedCheckpoint] = useState<Location | null>(null)
   const [newCheckpoint, setNewCheckpoint] = useState<NewCheckpoint>({
     name: '',
@@ -52,6 +54,21 @@ export default function CheckpointManagePage() {
     geofence_radius: 50,
     visit_instructions: '',
     qr_code: CheckpointService.generateCheckpointQRCode(`temp-${Date.now()}-${Math.random().toString(36).substring(7)}`), // Auto-generate initial QR code
+    nfc_tag: '',
+    verification_methods: ['qr'],
+    is_active: true
+  })
+  
+  const [editCheckpoint, setEditCheckpoint] = useState<NewCheckpoint>({
+    name: '',
+    description: '',
+    address: '',
+    latitude: null,
+    longitude: null,
+    location_type: 'checkpoint',
+    geofence_radius: 50,
+    visit_instructions: '',
+    qr_code: '',
     nfc_tag: '',
     verification_methods: ['qr'],
     is_active: true
@@ -189,6 +206,151 @@ export default function CheckpointManagePage() {
   const handleViewCheckpoint = (checkpoint: Location) => {
     setSelectedCheckpoint(checkpoint)
     setShowViewDialog(true)
+  }
+
+  const handleEditCheckpoint = (checkpoint: Location) => {
+    setEditCheckpoint({
+      name: checkpoint.name,
+      description: '',
+      address: checkpoint.address || '',
+      latitude: checkpoint.latitude || null,
+      longitude: checkpoint.longitude || null,
+      location_type: checkpoint.location_type as 'checkpoint' | 'waypoint' | 'emergency',
+      geofence_radius: checkpoint.geofence_radius || 50,
+      visit_instructions: checkpoint.metadata?.special_instructions || '',
+      qr_code: checkpoint.metadata?.qr_code || '',
+      nfc_tag: checkpoint.metadata?.nfc_tag_id || '',
+      verification_methods: checkpoint.metadata?.verification_methods || ['qr'],
+      is_active: true // Assume active for now
+    })
+    setSelectedCheckpoint(checkpoint)
+    setShowEditDialog(true)
+  }
+
+  const handleUpdateCheckpoint = async () => {
+    if (!editCheckpoint.name || !editCheckpoint.address || !selectedCheckpoint) {
+      alert('Please provide checkpoint name and address')
+      return
+    }
+
+    try {
+      const result = await CheckpointService.updateCheckpoint(
+        selectedCheckpoint.id,
+        user!.organization_id,
+        {
+          name: editCheckpoint.name,
+          description: editCheckpoint.description,
+          address: editCheckpoint.address,
+          latitude: editCheckpoint.latitude,
+          longitude: editCheckpoint.longitude,
+          location_type: editCheckpoint.location_type,
+          qr_code: editCheckpoint.qr_code,
+          nfc_tag: editCheckpoint.nfc_tag,
+          is_active: editCheckpoint.is_active,
+          verification_methods: editCheckpoint.verification_methods,
+          geofence_radius: editCheckpoint.geofence_radius,
+          visit_instructions: editCheckpoint.visit_instructions,
+          updated_by: user!.id
+        }
+      )
+
+      if (result.success) {
+        setShowEditDialog(false)
+        resetEditForm()
+        loadCheckpointData()
+      } else {
+        alert('Failed to update checkpoint: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error updating checkpoint:', error)
+      alert('Failed to update checkpoint')
+    }
+  }
+
+  const handleDeleteCheckpoint = (checkpoint: Location) => {
+    setSelectedCheckpoint(checkpoint)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDeleteCheckpoint = async () => {
+    if (!selectedCheckpoint) return
+
+    try {
+      const result = await CheckpointService.deleteCheckpoint(
+        selectedCheckpoint.id,
+        user!.organization_id,
+        user!.id
+      )
+
+      if (result.success) {
+        setShowDeleteDialog(false)
+        setSelectedCheckpoint(null)
+        loadCheckpointData()
+      } else {
+        alert('Failed to delete checkpoint: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error deleting checkpoint:', error)
+      alert('Failed to delete checkpoint')
+    }
+  }
+
+  const resetEditForm = () => {
+    setEditCheckpoint({
+      name: '',
+      description: '',
+      address: '',
+      latitude: null,
+      longitude: null,
+      location_type: 'checkpoint',
+      geofence_radius: 50,
+      visit_instructions: '',
+      qr_code: '',
+      nfc_tag: '',
+      verification_methods: ['qr'],
+      is_active: true
+    })
+  }
+
+  const handleEditVerificationMethodToggle = (method: 'qr' | 'nfc' | 'manual') => {
+    setEditCheckpoint(prev => {
+      const isRemoving = prev.verification_methods.includes(method)
+      const newMethods = isRemoving
+        ? prev.verification_methods.filter(m => m !== method)
+        : [...prev.verification_methods, method]
+
+      let updatedCheckpoint = { ...prev, verification_methods: newMethods }
+
+      // Auto-generate QR code if QR method is selected and no QR code exists
+      if (!isRemoving && method === 'qr' && !prev.qr_code) {
+        updatedCheckpoint.qr_code = CheckpointService.generateCheckpointQRCode(
+          `temp-${Date.now()}-${Math.random().toString(36).substring(7)}`
+        )
+      }
+
+      // Auto-generate NFC tag if NFC method is selected and no NFC tag exists
+      if (!isRemoving && method === 'nfc' && !prev.nfc_tag) {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        let result = ''
+        for (let i = 0; i < 8; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length))
+        }
+        updatedCheckpoint.nfc_tag = `NFC-${result}`
+      }
+
+      return updatedCheckpoint
+    })
+  }
+
+  const generateEditQRCode = () => {
+    if (!editCheckpoint.name) {
+      alert('Please enter checkpoint name first')
+      return
+    }
+    const qrData = CheckpointService.generateCheckpointQRCode(
+      `${editCheckpoint.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`
+    )
+    setEditCheckpoint({ ...editCheckpoint, qr_code: qrData })
   }
 
   const copyToClipboard = (text: string, label: string) => {
@@ -389,7 +551,6 @@ export default function CheckpointManagePage() {
                       }))
                     }}
                   />
-                </div>
                 </div>
 
                 {/* Verification Methods */}
@@ -638,10 +799,18 @@ export default function CheckpointManagePage() {
                         >
                           <Eye className="h-3 w-3" />
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEditCheckpoint(checkpoint)}
+                        >
                           <Edit className="h-3 w-3" />
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleDeleteCheckpoint(checkpoint)}
+                        >
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
@@ -762,8 +931,297 @@ export default function CheckpointManagePage() {
                 <Button variant="outline" onClick={() => setShowViewDialog(false)}>
                   Close
                 </Button>
-                <Button>
+                <Button onClick={() => {
+                  setShowViewDialog(false)
+                  handleEditCheckpoint(selectedCheckpoint!)
+                }}>
                   Edit Checkpoint
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Checkpoint Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Checkpoint</DialogTitle>
+            <DialogDescription>
+              Update checkpoint details, location, and verification methods.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Checkpoint Name *</Label>
+                <Input
+                  id="edit-name"
+                  placeholder="e.g., Main Entrance, Security Booth"
+                  value={editCheckpoint.name}
+                  onChange={(e) => setEditCheckpoint({ ...editCheckpoint, name: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-address">Address *</Label>
+                <Textarea
+                  id="edit-address"
+                  placeholder="Full address of the checkpoint location"
+                  value={editCheckpoint.address}
+                  onChange={(e) => setEditCheckpoint({ ...editCheckpoint, address: e.target.value })}
+                  rows={2}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-type">Location Type</Label>
+                  <Select 
+                    value={editCheckpoint.location_type} 
+                    onValueChange={(value) => setEditCheckpoint({ ...editCheckpoint, location_type: value as 'checkpoint' | 'waypoint' | 'emergency' })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="checkpoint">Checkpoint</SelectItem>
+                      <SelectItem value="waypoint">Waypoint</SelectItem>
+                      <SelectItem value="emergency">Emergency</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-radius">Geofence Radius (meters)</Label>
+                  <Input
+                    id="edit-radius"
+                    type="number"
+                    min="10"
+                    max="500"
+                    value={editCheckpoint.geofence_radius}
+                    onChange={(e) => setEditCheckpoint({ ...editCheckpoint, geofence_radius: parseInt(e.target.value) || 50 })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* GPS Coordinates */}
+            <div className="space-y-4">
+              <Label>GPS Coordinates</Label>
+              <LocationPicker
+                latitude={editCheckpoint.latitude}
+                longitude={editCheckpoint.longitude}
+                address={editCheckpoint.address}
+                onLocationChange={(lat, lng) => {
+                  setEditCheckpoint({
+                    ...editCheckpoint,
+                    latitude: lat,
+                    longitude: lng
+                  })
+                }}
+                height={200}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lat">Latitude</Label>
+                  <Input
+                    id="edit-lat"
+                    type="number"
+                    step="any"
+                    placeholder="e.g., 40.7128"
+                    value={editCheckpoint.latitude || ''}
+                    onChange={(e) => setEditCheckpoint({ ...editCheckpoint, latitude: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lng">Longitude</Label>
+                  <Input
+                    id="edit-lng"
+                    type="number"
+                    step="any"
+                    placeholder="e.g., -74.0060"
+                    value={editCheckpoint.longitude || ''}
+                    onChange={(e) => setEditCheckpoint({ ...editCheckpoint, longitude: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Verification Methods */}
+            <div className="space-y-4">
+              <Label>Verification Methods</Label>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit-method-qr"
+                    checked={editCheckpoint.verification_methods.includes('qr')}
+                    onCheckedChange={() => handleEditVerificationMethodToggle('qr')}
+                  />
+                  <Label htmlFor="edit-method-qr" className="flex items-center">
+                    <QrCode className="h-4 w-4 mr-2" />
+                    QR Code Scanning
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit-method-nfc"
+                    checked={editCheckpoint.verification_methods.includes('nfc')}
+                    onCheckedChange={() => handleEditVerificationMethodToggle('nfc')}
+                  />
+                  <Label htmlFor="edit-method-nfc" className="flex items-center">
+                    <Smartphone className="h-4 w-4 mr-2" />
+                    NFC Tag Scanning
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit-method-manual"
+                    checked={editCheckpoint.verification_methods.includes('manual')}
+                    onCheckedChange={() => handleEditVerificationMethodToggle('manual')}
+                  />
+                  <Label htmlFor="edit-method-manual" className="flex items-center">
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Manual Check-in
+                  </Label>
+                </div>
+              </div>
+            </div>
+
+            {/* QR Code Section */}
+            {editCheckpoint.verification_methods.includes('qr') && (
+              <div className="space-y-4">
+                <Label>QR Code Configuration</Label>
+                <div className="flex space-x-4">
+                  <div className="flex-1">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-qr-code">QR Code Data</Label>
+                      <div className="flex space-x-2">
+                        <Input
+                          id="edit-qr-code"
+                          placeholder="QR code data"
+                          value={editCheckpoint.qr_code}
+                          onChange={(e) => setEditCheckpoint({ ...editCheckpoint, qr_code: e.target.value })}
+                        />
+                        <Button type="button" variant="outline" onClick={generateEditQRCode}>
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  {editCheckpoint.qr_code && (
+                    <div className="flex flex-col items-center space-y-2">
+                      <QRCode value={editCheckpoint.qr_code} size={80} />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(editCheckpoint.qr_code, 'QR Code')}
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Copy
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* NFC Tag Section */}
+            {editCheckpoint.verification_methods.includes('nfc') && (
+              <div className="space-y-4">
+                <Label htmlFor="edit-nfc-tag">NFC Tag ID</Label>
+                <Input
+                  id="edit-nfc-tag"
+                  placeholder="NFC tag identifier"
+                  value={editCheckpoint.nfc_tag}
+                  onChange={(e) => setEditCheckpoint({ ...editCheckpoint, nfc_tag: e.target.value })}
+                />
+              </div>
+            )}
+
+            {/* Visit Instructions */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-instructions">Visit Instructions (Optional)</Label>
+              <Textarea
+                id="edit-instructions"
+                placeholder="Special instructions for guards visiting this checkpoint..."
+                value={editCheckpoint.visit_instructions}
+                onChange={(e) => setEditCheckpoint({ ...editCheckpoint, visit_instructions: e.target.value })}
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4 border-t">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowEditDialog(false)
+                  resetEditForm()
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUpdateCheckpoint}
+                disabled={!editCheckpoint.name || !editCheckpoint.address}
+              >
+                Update Checkpoint
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Delete Checkpoint</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this checkpoint? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedCheckpoint && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="font-medium text-sm">{selectedCheckpoint.name}</div>
+                {selectedCheckpoint.address && (
+                  <div className="text-sm text-gray-600 mt-1">{selectedCheckpoint.address}</div>
+                )}
+                <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                  <span>{getLocationTypeBadge(selectedCheckpoint.location_type)}</span>
+                  {selectedCheckpoint.metadata?.verification_methods && (
+                    <div className="flex space-x-1">
+                      {selectedCheckpoint.metadata.verification_methods.includes('qr') && (
+                        <Badge variant="secondary" className="text-xs">QR</Badge>
+                      )}
+                      {selectedCheckpoint.metadata.verification_methods.includes('nfc') && (
+                        <Badge variant="secondary" className="text-xs">NFC</Badge>
+                      )}
+                      {selectedCheckpoint.metadata.verification_methods.includes('manual') && (
+                        <Badge variant="secondary" className="text-xs">Manual</Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+                <strong>Warning:</strong> Deleting this checkpoint will remove it from all patrol routes and cannot be undone.
+              </div>
+              
+              <div className="flex justify-end space-x-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={confirmDeleteCheckpoint}>
+                  Delete Checkpoint
                 </Button>
               </div>
             </div>

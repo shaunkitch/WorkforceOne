@@ -312,6 +312,9 @@ export class GPSTrackingService {
   }>> {
     try {
       console.log('GPSTrackingService: Querying active users positions...')
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      console.log('GPSTrackingService: Looking for GPS data after:', thirtyMinutesAgo)
+      
       const { data, error } = await supabase
         .from('gps_tracking')
         .select(`
@@ -329,10 +332,10 @@ export class GPSTrackingService {
             last_name
           )
         `)
-        .gte('timestamp', new Date(Date.now() - 30 * 60 * 1000).toISOString()) // Last 30 minutes
+        .gte('timestamp', thirtyMinutesAgo)
         .order('timestamp', { ascending: false })
 
-      console.log('GPSTrackingService query result:', { data, error })
+      console.log('GPSTrackingService query result:', { data, error, count: data?.length })
 
       if (error || !data) {
         return []

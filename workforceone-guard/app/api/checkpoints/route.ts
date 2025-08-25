@@ -197,8 +197,7 @@ export async function PUT(request: NextRequest) {
         longitude,
         geofence_radius,
         location_type,
-        metadata,
-        updated_at: new Date().toISOString()
+        metadata
       })
       .eq('id', id)
       .eq('organization_id', organization_id)

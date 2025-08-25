@@ -282,52 +282,38 @@ export class PatrolService {
     }
   }
 
-  // Get patrol routes
+  // Get patrol routes via API
   static async getPatrolRoutes(organizationId: string, activeOnly: boolean = true): Promise<PatrolRoute[]> {
     try {
-      let query = supabase
-        .from('patrol_routes')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .order('name')
+      const params = new URLSearchParams({
+        organization_id: organizationId,
+        include_checkpoints: 'true'
+      })
 
-      if (activeOnly) {
-        query = query.eq('is_active', true)
-      }
+      const response = await fetch(`/api/patrols/routes?${params}`)
+      const result = await response.json()
 
-      const { data, error } = await query
-
-      if (error) {
-        console.error('Error fetching patrol routes:', error)
+      if (!response.ok) {
+        console.error('Error fetching patrol routes:', result)
         return []
       }
 
-      // Fetch location details for each route
-      const routesWithLocations = await Promise.all(
-        (data || []).map(async (route) => {
-          if (route.checkpoints && route.checkpoints.length > 0) {
-            const { data: locations } = await supabase
-              .from('locations')
-              .select('id, name, address, latitude, longitude')
-              .in('id', route.checkpoints)
+      let routes = result.routes || []
 
-            return {
-              ...route,
-              locations: locations || []
-            }
-          }
-          return { ...route, locations: [] }
-        })
-      )
+      // Filter by active status if needed
+      if (activeOnly) {
+        routes = routes.filter((route: PatrolRoute) => route.is_active)
+      }
 
-      return routesWithLocations
+      // Routes now include location details from the API
+      return routes
     } catch (error) {
       console.error('Error in getPatrolRoutes:', error)
       return []
     }
   }
 
-  // Create patrol route
+  // Create patrol route via API
   static async createPatrolRoute(route: {
     organization_id: string
     name: string
@@ -337,24 +323,99 @@ export class PatrolService {
     created_by?: string
   }): Promise<{ success: boolean; route?: PatrolRoute; error?: string }> {
     try {
-      const { data, error } = await supabase
-        .from('patrol_routes')
-        .insert({
+      const response = await fetch('/api/patrols/routes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           ...route,
           is_active: true
-        })
-        .select()
-        .single()
+        }),
+      })
 
-      if (error) {
-        console.error('Error creating patrol route:', error)
-        return { success: false, error: error.message }
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Error creating patrol route:', result)
+        return { success: false, error: result.error || 'Failed to create patrol route' }
       }
 
-      return { success: true, route: data }
+      return { success: result.success, route: result.route }
     } catch (error) {
       console.error('Error in createPatrolRoute:', error)
       return { success: false, error: 'Failed to create patrol route' }
+    }
+  }
+
+  // Update patrol route via API
+  static async updatePatrolRoute(
+    id: string,
+    organizationId: string,
+    route: {
+      name?: string
+      description?: string
+      checkpoints?: string[]
+      estimated_duration?: number
+      is_active?: boolean
+      updated_by?: string
+    }
+  ): Promise<{ success: boolean; route?: PatrolRoute; error?: string }> {
+    try {
+      const response = await fetch('/api/patrols/routes', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id,
+          organization_id: organizationId,
+          ...route
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Error updating patrol route:', result)
+        return { success: false, error: result.error || 'Failed to update patrol route' }
+      }
+
+      return { success: result.success, route: result.route }
+    } catch (error) {
+      console.error('Error in updatePatrolRoute:', error)
+      return { success: false, error: 'Failed to update patrol route' }
+    }
+  }
+
+  // Delete patrol route via API
+  static async deletePatrolRoute(
+    id: string,
+    organizationId: string,
+    deletedBy: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const params = new URLSearchParams({
+        id,
+        organization_id: organizationId,
+        deleted_by: deletedBy
+      })
+
+      const response = await fetch(`/api/patrols/routes?${params}`, {
+        method: 'DELETE'
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Error deleting patrol route:', result)
+        return { success: false, error: result.error || 'Failed to delete patrol route' }
+      }
+
+      return { success: result.success }
+    } catch (error) {
+      console.error('Error in deletePatrolRoute:', error)
+      return { success: false, error: 'Failed to delete patrol route' }
     }
   }
 

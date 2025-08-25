@@ -6,7 +6,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Shield, MapPin, AlertTriangle, Users, Activity, LogOut, Scan, Settings } from 'lucide-react'
+import { Shield, MapPin, AlertTriangle, Users, Activity, LogOut, Scan, Settings, QrCode, UserCheck } from 'lucide-react'
 
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth()
@@ -119,21 +119,59 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${permissions?.canRead('admin') ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
-          <Link href="/dashboard/map">
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6`}>
+          <Link href="/dashboard/attendance">
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Activity className="h-5 w-5 mr-2 text-blue-600" />
-                  Live Map
+                  <UserCheck className="h-5 w-5 mr-2 text-indigo-600" />
+                  Attendance Monitor
                 </CardTitle>
                 <CardDescription>
-                  View real-time guard locations and patrol routes
+                  Track guard check-ins, shifts, and QR code attendance
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Button className="w-full">
-                  Open Live Map
+                  Open Attendance
+                </Button>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/live-tracking">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Activity className="h-5 w-5 mr-2 text-blue-600" />
+                  Live Tracking
+                </CardTitle>
+                <CardDescription>
+                  Real-time GPS tracking of all active guards
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button className="w-full" variant="outline">
+                  View Live Map
+                </Button>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/map">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <MapPin className="h-5 w-5 mr-2 text-green-600" />
+                  Google Maps
+                </CardTitle>
+                <CardDescription>
+                  View guard locations with Google Maps integration
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button className="w-full" variant="outline">
+                  Open Map View
                 </Button>
               </CardContent>
             </Card>
