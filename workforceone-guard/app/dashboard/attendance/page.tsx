@@ -76,7 +76,9 @@ export default function AttendancePage() {
   const loadAttendanceData = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/attendance/records')
+      const response = await fetch('/api/attendance/records', {
+        credentials: 'include'
+      })
       const data = await response.json()
       
       if (data.success) {
@@ -92,7 +94,9 @@ export default function AttendancePage() {
 
   const loadQRCodes = async () => {
     try {
-      const response = await fetch('/api/attendance/qr-code')
+      const response = await fetch('/api/attendance/qr-code', {
+        credentials: 'include'
+      })
       const data = await response.json()
       
       if (data.success) {
@@ -109,6 +113,7 @@ export default function AttendancePage() {
       const response = await fetch('/api/attendance/qr-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ 
           type: qrType,
           validHours: qrType === 'random' ? 24 : undefined

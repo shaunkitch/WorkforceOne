@@ -9,7 +9,20 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate environment variables
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing environment variables:', {
+        hasUrl: !!supabaseUrl,
+        hasServiceKey: !!supabaseServiceKey
+      })
+      return NextResponse.json({ 
+        error: 'Server configuration error' 
+      }, { status: 500 })
+    }
+
     const { email, password, userData } = await request.json()
+    
+    console.log('Registration request:', { email, userData })
 
     // Create organization if provided
     let organizationId = userData.organization_id
@@ -78,7 +91,47 @@ export async function POST(request: NextRequest) {
       roleId = '00000000-0000-0000-0000-000000000003' // Security Guard role
     }
 
+    // Check if user already exists in both auth and users table
+    const { data: existingAuthUser } = await supabaseAdmin.auth.admin.listUsers()
+    const authUserExists = existingAuthUser?.users?.find(u => u.email === email)
+    
+    const { data: existingProfile } = await supabaseAdmin
+      .from('users')
+      .select('id, email')
+      .eq('email', email)
+      .single()
+    
+    if (authUserExists || existingProfile) {
+      return NextResponse.json({ 
+        error: 'User already exists with this email address' 
+      }, { status: 400 })
+    }
+
+    // Create user profile first (before creating auth user to avoid trigger conflicts)
+    console.log('Creating user profile first...')
+    const tempUserId = crypto.randomUUID()
+    
+    const { error: preProfileError } = await supabaseAdmin
+      .from('users')
+      .insert({
+        id: tempUserId, // Temporary ID that we'll update later
+        email,
+        first_name: userData.first_name || 'User',
+        last_name: userData.last_name || 'Name',
+        organization_id: organizationId,
+        role_id: roleId,
+        phone: userData.phone
+      })
+
+    if (preProfileError) {
+      console.error('Pre-profile creation error:', preProfileError)
+      return NextResponse.json({ 
+        error: `Profile creation failed: ${preProfileError.message}` 
+      }, { status: 400 })
+    }
+
     // Create the auth user
+    console.log('Attempting to create auth user with email:', email)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -86,26 +139,32 @@ export async function POST(request: NextRequest) {
     })
 
     if (authError) {
-      console.error('Auth creation error:', authError)
-      return NextResponse.json({ error: authError.message }, { status: 400 })
+      console.error('Auth creation error details:', {
+        message: authError.message,
+        status: authError.status,
+        code: authError.code || 'No code',
+        details: authError
+      })
+      
+      // Clean up the temporary profile
+      await supabaseAdmin.from('users').delete().eq('id', tempUserId)
+      
+      return NextResponse.json({ 
+        error: `Authentication error: ${authError.message}` 
+      }, { status: 400 })
     }
 
     if (!authData.user) {
+      // Clean up the temporary profile
+      await supabaseAdmin.from('users').delete().eq('id', tempUserId)
       return NextResponse.json({ error: 'User creation failed' }, { status: 400 })
     }
 
-    // Create the user profile with service role permissions
+    // Update the profile with the real auth user ID
     const { error: profileError } = await supabaseAdmin
       .from('users')
-      .insert({
-        id: authData.user.id,
-        email,
-        first_name: userData.first_name,
-        last_name: userData.last_name,
-        organization_id: organizationId,
-        role_id: roleId,
-        phone: userData.phone
-      })
+      .update({ id: authData.user.id })
+      .eq('id', tempUserId)
 
     if (profileError) {
       console.error('Profile creation error:', profileError)

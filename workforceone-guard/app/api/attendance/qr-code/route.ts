@@ -13,6 +13,12 @@ export async function POST(request: NextRequest) {
           get(name: string) {
             return cookieStore.get(name)?.value
           },
+          set(name: string, value: string, options: CookieOptions) {
+            // No-op for API routes
+          },
+          remove(name: string, options: CookieOptions) {
+            // No-op for API routes
+          },
         },
       }
     )
@@ -107,6 +113,12 @@ export async function GET(request: NextRequest) {
         cookies: {
           get(name: string) {
             return cookieStore.get(name)?.value
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            // No-op for API routes
+          },
+          remove(name: string, options: CookieOptions) {
+            // No-op for API routes
           },
         },
       }

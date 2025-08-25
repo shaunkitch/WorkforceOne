@@ -107,7 +107,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!profile) {
-        console.error('Profile is null or undefined')
+        console.error('Profile is null or undefined - redirecting to setup')
+        // Redirect to setup profile page if user is authenticated but has no profile
+        if (typeof window !== 'undefined' && window.location.pathname !== '/setup-profile') {
+          window.location.href = '/setup-profile'
+        }
         setLoading(false)
         return
       }
@@ -149,7 +153,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, userData: Partial<AuthUser>) => {
     try {
-      const response = await fetch('/api/auth/register', {
+      // Use the smart registration API that works with triggers
+      console.log('Using smart registration approach...')
+      
+      const response = await fetch('/api/auth/smart-register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -161,22 +168,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }),
       })
 
+      console.log('Registration API response received:', response.status)
       const result = await response.json()
+      console.log('Registration API result:', result)
 
       if (!response.ok) {
+        console.error('Registration API failed:', result.error)
         return { error: { message: result.error } }
       }
 
       // After successful registration, sign in the user
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      console.log('Registration successful, attempting sign in...')
+      
+      try {
+        const { data: signInData, error: signInError } = await Promise.race([
+          supabase.auth.signInWithPassword({
+            email,
+            password,
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Sign-in timeout')), 10000)
+          )
+        ]) as any
 
-      return { error: signInError }
+        if (signInError) {
+          console.error('Sign-in error after registration:', signInError)
+          // Registration succeeded but sign-in failed - user can manually sign in
+          return { 
+            error: null,
+            message: 'Registration successful! Please sign in with your new account.',
+            needsManualSignIn: true
+          }
+        }
+
+        console.log('Sign-in successful:', signInData?.user?.id)
+        
+        // Registration and sign-in successful
+        console.log('Smart registration and sign-in completed successfully!')
+        return { error: null }
+        
+      } catch (signInTimeoutError) {
+        console.error('Sign-in timeout or error:', signInTimeoutError)
+        // Registration succeeded but sign-in had issues - user can manually sign in
+        return { 
+          error: null,
+          message: 'Registration successful! Please sign in with your new account.',
+          needsManualSignIn: true
+        }
+      }
+
     } catch (error) {
       console.error('Registration error:', error)
-      return { error: { message: 'Registration failed' } }
+      return { error: { message: 'Registration failed due to network or server error' } }
     }
   }
 

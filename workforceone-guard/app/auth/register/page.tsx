@@ -23,6 +23,7 @@ export default function RegisterPage() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const { signUp } = useAuth()
   const router = useRouter()
 
@@ -34,6 +35,7 @@ export default function RegisterPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setSuccess('')
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match')
@@ -42,17 +44,28 @@ export default function RegisterPage() {
     }
 
     // Create account with new organization
-    const { error } = await signUp(formData.email, formData.password, {
+    const result = await signUp(formData.email, formData.password, {
       first_name: formData.firstName,
       last_name: formData.lastName,
       phone: formData.phone,
       organization_name: formData.organizationName
     })
     
-    if (error) {
-      setError(error.message)
+    if (result.error) {
+      setError(result.error.message)
       setLoading(false)
+    } else if (result.needsEmailConfirmation) {
+      setSuccess(result.message || 'Registration successful! Please check your email to confirm your account.')
+      setLoading(false)
+    } else if (result.needsManualSignIn) {
+      setSuccess(result.message || 'Registration successful! Please sign in with your new account.')
+      setLoading(false)
+      // Redirect to login page after a moment
+      setTimeout(() => {
+        router.push('/auth/login')
+      }, 3000)
     } else {
+      // User is signed in and ready to go
       router.push('/dashboard')
     }
   }
@@ -74,6 +87,12 @@ export default function RegisterPage() {
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            {success && (
+              <Alert>
+                <AlertDescription>{success}</AlertDescription>
               </Alert>
             )}
             

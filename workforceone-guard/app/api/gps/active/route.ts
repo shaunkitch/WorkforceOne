@@ -41,12 +41,30 @@ export async function GET() {
 
     console.log('Query result:', { data, error, count: data?.length })
 
-    if (error || !data) {
+    if (error) {
       console.error('Database error:', error)
+      // If table doesn't exist, return empty but successful response
+      if (error.message?.includes('does not exist') || error.code === '42P01') {
+        return NextResponse.json({
+          success: true,
+          count: 0,
+          positions: [],
+          message: 'GPS tracking table not found - no active positions available'
+        })
+      }
       return NextResponse.json({
         success: false,
-        error: error?.message || 'No data found',
+        error: error?.message || 'Database error',
         positions: []
+      })
+    }
+
+    if (!data) {
+      return NextResponse.json({
+        success: true,
+        count: 0,
+        positions: [],
+        message: 'No GPS data found'
       })
     }
 
