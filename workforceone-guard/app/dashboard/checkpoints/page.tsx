@@ -223,10 +223,18 @@ export default function CheckpointsPage() {
               Scan QR codes or NFC tags to verify checkpoint visits during patrols.
             </p>
           </div>
-          <Button onClick={() => setShowScanner(true)}>
-            <Scan className="h-4 w-4 mr-2" />
-            Start Scanner
-          </Button>
+          <div className="flex space-x-3">
+            <Link href="/dashboard/checkpoints/manage">
+              <Button variant="outline">
+                <MapPin className="h-4 w-4 mr-2" />
+                Manage Checkpoints
+              </Button>
+            </Link>
+            <Button onClick={() => setShowScanner(true)}>
+              <Scan className="h-4 w-4 mr-2" />
+              Start Scanner
+            </Button>
+          </div>
         </div>
 
         {/* Scanner Dialog */}

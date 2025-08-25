@@ -39,25 +39,144 @@ export interface CheckpointScan {
 }
 
 export class CheckpointService {
-  // Get all checkpoints for an organization
-  static async getCheckpoints(organizationId: string): Promise<Location[]> {
+  // Create a new checkpoint via API
+  static async createCheckpoint(data: {
+    organization_id: string
+    name: string
+    description?: string
+    address?: string
+    latitude?: number | null
+    longitude?: number | null
+    location_type: 'checkpoint' | 'waypoint' | 'emergency'
+    qr_code: string
+    nfc_tag?: string
+    is_active: boolean
+    verification_methods: ('qr' | 'nfc' | 'manual')[]
+    geofence_radius?: number
+    visit_instructions?: string
+    created_by: string
+  }): Promise<{ success: boolean; checkpoint?: Location; error?: string }> {
     try {
-      const { data, error } = await supabase
-        .from('locations')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .eq('location_type', 'checkpoint')
-        .order('name')
+      const response = await fetch('/api/checkpoints', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
 
-      if (error) {
-        console.error('Error fetching checkpoints:', error)
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Error creating checkpoint:', result)
+        return { success: false, error: result.error || 'Failed to create checkpoint' }
+      }
+
+      return { success: result.success, checkpoint: result.checkpoint }
+    } catch (error) {
+      console.error('Error creating checkpoint:', error)
+      return { success: false, error: 'Failed to create checkpoint' }
+    }
+  }
+
+  // Get all checkpoints for an organization via API
+  static async getCheckpoints(organizationId: string, activeOnly = false): Promise<Location[]> {
+    try {
+      const params = new URLSearchParams({
+        organization_id: organizationId,
+        active_only: activeOnly.toString()
+      })
+
+      const response = await fetch(`/api/checkpoints?${params}`)
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Error fetching checkpoints:', result)
         return []
       }
 
-      return data || []
+      return result.checkpoints || []
     } catch (error) {
       console.error('Error in getCheckpoints:', error)
       return []
+    }
+  }
+
+  // Update checkpoint via API
+  static async updateCheckpoint(
+    id: string,
+    organizationId: string,
+    data: {
+      name?: string
+      description?: string
+      address?: string
+      latitude?: number | null
+      longitude?: number | null
+      location_type?: 'checkpoint' | 'waypoint' | 'emergency'
+      qr_code?: string
+      nfc_tag?: string
+      is_active?: boolean
+      verification_methods?: ('qr' | 'nfc' | 'manual')[]
+      geofence_radius?: number
+      visit_instructions?: string
+      updated_by: string
+    }
+  ): Promise<{ success: boolean; checkpoint?: Location; error?: string }> {
+    try {
+      const response = await fetch('/api/checkpoints', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id,
+          organization_id: organizationId,
+          ...data
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Error updating checkpoint:', result)
+        return { success: false, error: result.error || 'Failed to update checkpoint' }
+      }
+
+      return { success: result.success, checkpoint: result.checkpoint }
+    } catch (error) {
+      console.error('Error updating checkpoint:', error)
+      return { success: false, error: 'Failed to update checkpoint' }
+    }
+  }
+
+  // Delete checkpoint via API
+  static async deleteCheckpoint(
+    id: string,
+    organizationId: string,
+    deletedBy: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const params = new URLSearchParams({
+        id,
+        organization_id: organizationId,
+        deleted_by: deletedBy
+      })
+
+      const response = await fetch(`/api/checkpoints?${params}`, {
+        method: 'DELETE'
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Error deleting checkpoint:', result)
+        return { success: false, error: result.error || 'Failed to delete checkpoint' }
+      }
+
+      return { success: result.success }
+    } catch (error) {
+      console.error('Error deleting checkpoint:', error)
+      return { success: false, error: 'Failed to delete checkpoint' }
     }
   }
 

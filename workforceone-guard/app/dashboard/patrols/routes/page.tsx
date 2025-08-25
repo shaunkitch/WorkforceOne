@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { PatrolService, PatrolRoute } from '@/lib/patrols/service'
+import { CheckpointService, Location as CheckpointLocation } from '@/lib/checkpoints/service'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -17,20 +18,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { ArrowLeft, Shield, LogOut, Plus, Route, MapPin, Clock, Eye, Edit, Trash2, Navigation } from 'lucide-react'
 
-interface Location {
-  id: string
-  name: string
-  address?: string
-  latitude?: number
-  longitude?: number
-  location_type?: string
-}
+// Use CheckpointLocation from the service instead of local interface
 
 export default function PatrolRoutesPage() {
   const { user, loading, signOut } = useAuth()
   const router = useRouter()
   const [routes, setRoutes] = useState<PatrolRoute[]>([])
-  const [locations, setLocations] = useState<Location[]>([])
+  const [locations, setLocations] = useState<CheckpointLocation[]>([])
   const [loadingData, setLoadingData] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showViewDialog, setShowViewDialog] = useState(false)
@@ -61,7 +55,7 @@ export default function PatrolRoutesPage() {
     try {
       const [routesData, locationsData] = await Promise.all([
         PatrolService.getPatrolRoutes(user.organization_id, false),
-        loadLocations()
+        CheckpointService.getCheckpoints(user.organization_id)
       ])
 
       setRoutes(routesData)
@@ -73,22 +67,7 @@ export default function PatrolRoutesPage() {
     }
   }
 
-  const loadLocations = async (): Promise<Location[]> => {
-    try {
-      // This would ideally come from a locations service
-      // For now, we'll use a mock implementation with proper UUIDs
-      return [
-        { id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', name: 'Main Entrance', address: '123 Main St', location_type: 'checkpoint' },
-        { id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', name: 'Parking Lot A', address: '123 Main St - Lot A', location_type: 'checkpoint' },
-        { id: 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13', name: 'Building Perimeter', address: '123 Main St - Perimeter', location_type: 'checkpoint' },
-        { id: 'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14', name: 'Loading Dock', address: '123 Main St - Loading', location_type: 'checkpoint' },
-        { id: 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15', name: 'Emergency Exit', address: '123 Main St - Emergency', location_type: 'checkpoint' }
-      ]
-    } catch (error) {
-      console.error('Error loading locations:', error)
-      return []
-    }
-  }
+  // Removed loadLocations function - now using CheckpointService.getCheckpoints directly
 
   const handleCreateRoute = async () => {
     if (!newRoute.name || newRoute.checkpoints.length === 0) {
@@ -212,12 +191,20 @@ export default function PatrolRoutesPage() {
             </p>
           </div>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Route
-              </Button>
-            </DialogTrigger>
+            <div className="flex space-x-3">
+              <Link href="/dashboard/checkpoints/manage">
+                <Button variant="outline">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Manage Checkpoints
+                </Button>
+              </Link>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Route
+                </Button>
+              </DialogTrigger>
+            </div>
             <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>Create New Patrol Route</DialogTitle>
@@ -277,6 +264,15 @@ export default function PatrolRoutesPage() {
                           {location.address && (
                             <div className="text-xs text-gray-500">{location.address}</div>
                           )}
+                          <div className="flex items-center space-x-2 mt-1">
+                            {location.metadata?.qr_code && (
+                              <Badge variant="secondary" className="text-xs">QR</Badge>
+                            )}
+                            {location.metadata?.nfc_tag_id && (
+                              <Badge variant="secondary" className="text-xs">NFC</Badge>
+                            )}
+                            <Badge variant="outline" className="text-xs">{location.location_type}</Badge>
+                          </div>
                         </Label>
                         <MapPin className="h-4 w-4 text-gray-400" />
                       </div>
