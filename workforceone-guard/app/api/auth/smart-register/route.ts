@@ -30,9 +30,102 @@ export async function POST(request: NextRequest) {
 
     console.log('User does not exist, proceeding with registration...')
 
-    // Use default organization/role
-    const organizationId = '00000000-0000-0000-0000-000000000001' // Default org
-    const roleId = '00000000-0000-0000-0000-000000000003' // Default role
+    // Create new organization if organization_name is provided, otherwise use default
+    let organizationId = '00000000-0000-0000-0000-000000000001' // Default org
+    let roleId = '00000000-0000-0000-0000-000000000003' // Default role (user)
+
+    if (userData.organization_name) {
+      console.log('Creating new organization:', userData.organization_name)
+      
+      // Create slug from organization name
+      const slug = userData.organization_name
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .trim() + '-' + Date.now()
+
+      // Create new organization
+      const { data: newOrg, error: orgError } = await supabaseAdmin
+        .from('organizations')
+        .insert({
+          name: userData.organization_name,
+          slug,
+          subscription_tier: 'basic',
+          active_modules: ['guard'],
+          settings: {}
+        })
+        .select('id')
+        .single()
+
+      if (orgError) {
+        console.error('Organization creation error:', orgError)
+        return NextResponse.json({ 
+          error: `Organization creation failed: ${orgError.message}` 
+        }, { status: 400 })
+      }
+
+      organizationId = newOrg.id
+      console.log('New organization created:', organizationId)
+
+      // Create default roles for the new organization
+      const defaultRoles = [
+        {
+          name: 'Super Admin',
+          permissions: { "*": "*" },
+          module: 'guard'
+        },
+        {
+          name: 'Guard Supervisor', 
+          permissions: { 
+            "patrols": ["read", "create", "update"], 
+            "incidents": ["read", "create", "update"], 
+            "reports": ["read"], 
+            "admin": ["read"] 
+          },
+          module: 'guard'
+        },
+        {
+          name: 'Security Guard',
+          permissions: {
+            "patrols": ["read", "update"],
+            "incidents": ["read", "create"], 
+            "checkpoints": ["update"]
+          },
+          module: 'guard'
+        },
+        {
+          name: 'Dispatcher',
+          permissions: {
+            "patrols": ["read"],
+            "incidents": ["read", "update"],
+            "gps_tracking": ["read"]
+          },
+          module: 'guard'
+        }
+      ]
+
+      const { data: createdRoles, error: rolesError } = await supabaseAdmin
+        .from('roles')
+        .insert(
+          defaultRoles.map(role => ({
+            ...role,
+            organization_id: organizationId
+          }))
+        )
+        .select('id, name')
+
+      if (rolesError) {
+        console.error('Roles creation error:', rolesError)
+        // Not critical, user can still be created with a basic role
+      } else {
+        console.log('Default roles created for organization')
+        // Use the Super Admin role ID for the org creator
+        const adminRole = createdRoles.find(r => r.name === 'Super Admin')
+        if (adminRole) {
+          roleId = adminRole.id
+        }
+      }
+    }
 
     // Strategy: Create auth user with exact metadata that trigger expects
     // This should make the trigger create the profile successfully
@@ -103,11 +196,17 @@ export async function POST(request: NextRequest) {
     } else {
       console.log('Trigger created profile successfully:', triggerProfile.id)
       
-      // Update the profile with additional data if needed
-      if (userData.phone || userData.organization_name) {
-        const updateData: any = {}
-        if (userData.phone) updateData.phone = userData.phone
-        
+      // Update the profile with correct organization and additional data
+      const updateData: any = {}
+      if (userData.phone) updateData.phone = userData.phone
+      
+      // Always update organization_id if we created a new organization
+      if (userData.organization_name) {
+        updateData.organization_id = organizationId
+        updateData.role_id = roleId
+      }
+      
+      if (Object.keys(updateData).length > 0) {
         const { error: updateError } = await supabaseAdmin
           .from('users')
           .update(updateData)
@@ -115,7 +214,14 @@ export async function POST(request: NextRequest) {
 
         if (updateError) {
           console.error('Profile update error:', updateError)
-          // Not critical, continue with registration success
+          // Critical for organization assignment
+          if (userData.organization_name) {
+            return NextResponse.json({ 
+              error: `Organization assignment failed: ${updateError.message}` 
+            }, { status: 400 })
+          }
+        } else {
+          console.log('Profile updated with organization:', organizationId)
         }
       }
     }

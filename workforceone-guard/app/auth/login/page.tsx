@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth/hooks'
@@ -16,21 +16,91 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const { signIn } = useAuth()
+  const [redirecting, setRedirecting] = useState(false)
+  const { signIn, user, loading: authLoading } = useAuth()
   const router = useRouter()
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && user && !redirecting) {
+      console.log('User already authenticated, redirecting to dashboard')
+      setRedirecting(true)
+      window.location.href = '/dashboard'
+    }
+  }, [user, authLoading, redirecting])
+
+  // Show loading state while checking auth or redirecting
+  if (authLoading || redirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading...</span>
+        </div>
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
-    const { error } = await signIn(email, password)
-    
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-    } else {
-      router.push('/dashboard')
+    try {
+      console.log('Attempting login for:', email)
+      
+      const result = await Promise.race([
+        signIn(email, password),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Login timeout')), 10000)
+        )
+      ]) as any
+
+      console.log('Login result:', result)
+      
+      if (result.error) {
+        console.error('Login error:', result.error)
+        setError(result.error.message)
+        setLoading(false)
+      } else {
+        console.log('Login successful, redirecting to dashboard...')
+        // Small delay to ensure auth state is updated
+        setTimeout(() => {
+          window.location.href = '/dashboard'
+        }, 500)
+      }
+    } catch (timeoutError) {
+      console.error('Login timeout, trying server-side login:', timeoutError)
+      
+      try {
+        console.log('Attempting server-side login...')
+        const serverResponse = await fetch('/api/auth/server-login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ email, password }),
+        })
+
+        const serverResult = await serverResponse.json()
+        console.log('Server login result:', serverResult)
+
+        if (serverResult.success) {
+          console.log('Server login successful, redirecting...')
+          // Small delay to ensure session cookies are set
+          setTimeout(() => {
+            window.location.href = '/dashboard'
+          }, 500)
+        } else {
+          setError(serverResult.error || 'Login failed. Please check your credentials.')
+          setLoading(false)
+        }
+      } catch (serverError) {
+        console.error('Server login also failed:', serverError)
+        setError('Login failed. Please check your credentials and try again.')
+        setLoading(false)
+      }
     }
   }
 

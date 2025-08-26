@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase/client'
 import { PermissionChecker, Role } from './permissions'
@@ -32,11 +32,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [permissions, setPermissions] = useState<PermissionChecker | null>(null)
+  const [fetchingProfile, setFetchingProfile] = useState(false)
+  const currentUserRef = useRef<string | null>(null)
 
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
+        currentUserRef.current = session.user.id
         fetchUserProfile(session.user)
       } else {
         setLoading(false)
@@ -47,9 +50,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, session?.user?.id)
       if (session?.user) {
-        await fetchUserProfile(session.user)
+        // Only fetch profile if we don't already have this user ID
+        if (currentUserRef.current !== session.user.id) {
+          currentUserRef.current = session.user.id
+          await fetchUserProfile(session.user)
+        } else {
+          console.log('Same user already loaded, skipping profile fetch')
+        }
       } else {
+        currentUserRef.current = null
         setUser(null)
         setPermissions(null)
         setLoading(false)
@@ -59,7 +70,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const fetchUserProfile = async (authUser: User) => {
+  const fetchUserProfile = useCallback(async (authUser: User) => {
+    if (fetchingProfile) {
+      console.log('Profile fetch already in progress, skipping...')
+      return
+    }
+    
+    setFetchingProfile(true)
     try {
       // First try the direct query
       let { data: profile, error } = await supabase
@@ -131,6 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(authUserData)
+      currentUserRef.current = authUserData.id
 
       // Set up permissions
       if (profile.role) {
@@ -140,15 +158,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error in fetchUserProfile:', error)
     } finally {
       setLoading(false)
+      setFetchingProfile(false)
     }
-  }
+  }, [])
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    return { error }
+    try {
+      console.log('Attempting signInWithPassword...')
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      console.log('SignIn response:', { 
+        user: data.user?.id, 
+        session: !!data.session,
+        error: error?.message 
+      })
+
+      if (error) {
+        console.error('Sign in error:', error)
+        return { error }
+      }
+
+      if (!data.session || !data.user) {
+        console.error('Sign in failed: no session or user returned')
+        return { error: { message: 'Authentication failed - no session created' } }
+      }
+
+      console.log('Sign in successful, session created')
+      return { error: null }
+    } catch (err) {
+      console.error('Sign in exception:', err)
+      return { error: { message: 'Authentication failed due to network error' } }
+    }
   }
 
   const signUp = async (email: string, password: string, userData: Partial<AuthUser>) => {
