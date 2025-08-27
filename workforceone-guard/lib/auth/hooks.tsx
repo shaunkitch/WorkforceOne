@@ -78,19 +78,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     setFetchingProfile(true)
     try {
-      // First try the direct query
-      let { data: profile, error } = await supabase
-        .from('users')
-        .select(`
-          *,
-          role:roles(*)
-        `)
-        .eq('id', authUser.id)
-        .single()
+      // Skip direct query due to RLS recursion issues, go straight to API endpoint
+      let profile = null
+      let error: any = { code: 'SKIP_DIRECT', message: 'Skipping direct query' }
 
-      // If the direct query fails due to RLS, try the API endpoint
-      if (error && (error.code === 'PGRST116' || error.message?.includes('Cannot coerce'))) {
-        console.log('Direct query failed, trying API endpoint...', error)
+      // Always use the API endpoint to avoid RLS recursion
+      if (true) {
+        console.log('Using API endpoint for profile fetch...')
         
         try {
           const response = await fetch(`/api/auth/profile?userId=${authUser.id}`)

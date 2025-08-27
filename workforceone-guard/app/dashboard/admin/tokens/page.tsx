@@ -126,7 +126,14 @@ export default function RegistrationTokensPage() {
   }
 
   const getRegistrationURL = (token: string) => {
-    return `${window.location.origin}/auth/register/token?token=${token}`
+    // In production, this will be your actual domain
+    // For development, use current origin
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    const baseUrl = isDev ? window.location.origin : window.location.origin
+    
+    // Generate a full URL that contains the API endpoint information
+    // This ensures the mobile app can extract the correct domain for API calls
+    return `${baseUrl}/register?token=${token}`
   }
 
   const formatDateTime = (dateString: string) => {

@@ -5,6 +5,13 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
+// CORS headers for mobile app
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password, userData } = await request.json()
@@ -15,14 +22,14 @@ export async function POST(request: NextRequest) {
     const { data: existingAuthUser } = await supabaseAdmin.auth.admin.listUsers()
     const authUserExists = existingAuthUser?.users?.find(u => u.email === email)
     
-    const { data: existingProfile, error: checkError } = await supabaseAdmin
+    // Use maybeSingle to avoid RLS policy conflicts and 406 errors
+    const { data: existingProfile } = await supabaseAdmin
       .from('users')
       .select('id, email')
       .eq('email', email)
-      .single()
+      .maybeSingle()
     
-    // Ignore "not found" errors for the profile check
-    if (authUserExists || (existingProfile && !checkError?.message?.includes('No rows'))) {
+    if (authUserExists || existingProfile) {
       return NextResponse.json({ 
         error: 'User already exists with this email address' 
       }, { status: 400 })
@@ -30,9 +37,10 @@ export async function POST(request: NextRequest) {
 
     console.log('User does not exist, proceeding with registration...')
 
-    // Create new organization if organization_name is provided, otherwise use default
-    let organizationId = '00000000-0000-0000-0000-000000000001' // Default org
-    let roleId = '00000000-0000-0000-0000-000000000003' // Default role (user)
+    // Default values
+    let organizationId = userData.organization_id || '00000000-0000-0000-0000-000000000001'
+    let roleId = userData.role_id || '00000000-0000-0000-0000-000000000003'
+    let departmentId = userData.department_id || null
 
     if (userData.organization_name) {
       console.log('Creating new organization:', userData.organization_name)
@@ -179,6 +187,7 @@ export async function POST(request: NextRequest) {
           last_name: userData.last_name || 'Name',
           organization_id: organizationId,
           role_id: roleId,
+          department_id: departmentId,
           phone: userData.phone,
           is_active: true
         })
@@ -200,10 +209,11 @@ export async function POST(request: NextRequest) {
       const updateData: any = {}
       if (userData.phone) updateData.phone = userData.phone
       
-      // Always update organization_id if we created a new organization
-      if (userData.organization_name) {
+      // Always update organization_id if we created a new organization or it was provided via token
+      if (userData.organization_name || userData.organization_id) {
         updateData.organization_id = organizationId
         updateData.role_id = roleId
+        if (departmentId) updateData.department_id = departmentId
       }
       
       if (Object.keys(updateData).length > 0) {
@@ -226,6 +236,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Increment token usage if token was provided
+    if (userData.registration_token) {
+      const tokenToValidate = userData.registration_token.length <= 10 
+        ? userData.registration_token.toUpperCase() 
+        : userData.registration_token
+        
+      // Try to increment token usage count
+      let tokenError = null
+      try {
+        const { error } = await supabaseAdmin
+          .rpc('increment_usage_count_by_token', { token_value: tokenToValidate })
+        tokenError = error
+      } catch (rpcError) {
+        // Fallback to direct update if function doesn't exist
+        const { error } = await supabaseAdmin
+          .from('registration_tokens')
+          .update({
+            usage_count: supabaseAdmin.raw('usage_count + 1'),
+            updated_at: new Date().toISOString()
+          })
+          .eq('token', tokenToValidate)
+        tokenError = error
+      }
+      
+      if (tokenError) {
+        console.error('Failed to increment token usage:', tokenError)
+      }
+    }
+
     console.log('Smart registration completed successfully!')
 
     return NextResponse.json({ 
@@ -236,12 +275,16 @@ export async function POST(request: NextRequest) {
         email,
         needsEmailConfirmation: false
       }
-    })
+    }, { headers: corsHeaders })
 
   } catch (error) {
     console.error('Smart registration error:', error)
     return NextResponse.json({ 
       error: 'Registration failed due to server error'
-    }, { status: 500 })
+    }, { status: 500, headers: corsHeaders })
   }
+}
+
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 200, headers: corsHeaders })
 }

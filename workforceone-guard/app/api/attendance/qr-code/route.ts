@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         validFrom: data.valid_from,
         validUntil: data.valid_until,
         isActive: data.is_active,
-        dataUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/attendance/scan?code=${data.code}`
+        dataUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://workforceone-guard.vercel.app'}/attendance/scan?code=${data.code}`
       }
     })
 
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
         validFrom: new Date().toISOString(),
         validUntil: null,
         isActive: true,
-        dataUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/attendance/scan?code=STC-DEMO-123-ABC`
+        dataUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://workforceone-guard.vercel.app'}/attendance/scan?code=STC-DEMO-123-ABC`
       },
       {
         id: '2', 
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
         validFrom: new Date().toISOString(),
         validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
         isActive: true,
-        dataUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/attendance/scan?code=RND-DEMO-456-DEF`
+        dataUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://workforceone-guard.vercel.app'}/attendance/scan?code=RND-DEMO-456-DEF`
       }
     ]
 
