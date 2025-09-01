@@ -1,21 +1,19 @@
 'use client'
 
-import { useAuth, usePermissions } from '@/lib/auth/hooks'
-import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth/hooks'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import AdminLayout from '@/components/layout/AdminLayout'
 import LiveMap from '@/components/maps/LiveMap'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { ArrowLeft, Shield, LogOut, Users, MapPin, AlertTriangle, Settings, TrendingUp, Activity, Key, QrCode } from 'lucide-react'
+import { Shield, Users, MapPin, AlertTriangle, TrendingUp, Activity, QrCode, Zap, Clock, UserCheck } from 'lucide-react'
 
 export default function AdminConsolePage() {
-  const { user, loading, signOut } = useAuth()
-  const permissions = usePermissions()
-  const router = useRouter()
+  const { user } = useAuth()
   const [realTimeStats, setRealTimeStats] = useState({
     activeGuards: 12,
     ongoingPatrols: 8,
@@ -24,19 +22,6 @@ export default function AdminConsolePage() {
     averageResponseTime: '4.2 min',
     systemStatus: 'operational'
   })
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/auth/login')
-    }
-  }, [user, loading, router])
-
-  useEffect(() => {
-    // Check if user has admin permissions
-    if (permissions && !permissions.canRead('admin')) {
-      router.push('/dashboard')
-    }
-  }, [permissions, router])
 
   // Simulate real-time updates
   useEffect(() => {
@@ -52,88 +37,25 @@ export default function AdminConsolePage() {
     return () => clearInterval(interval)
   }, [])
 
-  const handleSignOut = async () => {
-    await signOut()
-    router.push('/auth/login')
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null
-  }
-
-  // Show access denied if user doesn't have admin permissions
-  if (permissions && !permissions.canRead('admin')) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <Shield className="h-12 w-12 text-red-600 mx-auto mb-4" />
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>
-              You don't have permission to access the admin console.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center">
-            <Link href="/dashboard">
-              <Button>Return to Dashboard</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <Link href="/dashboard">
-                <Button variant="ghost" size="sm" className="mr-4">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Button>
-              </Link>
-              <div className="p-2 bg-red-100 rounded-full mr-3">
-                <Settings className="h-6 w-6 text-red-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900">Admin Console</h1>
+    <AdminLayout>
+      <div className="p-6 space-y-8">
+        {/* Welcome Section */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.first_name || 'Admin'}!</h1>
+              <p className="text-blue-100 text-lg">
+                Security Operations Center - Real-time monitoring and management
+              </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                {realTimeStats.systemStatus}
-              </Badge>
-              <span className="text-sm text-gray-600">
-                {user.first_name} {user.last_name}
-              </span>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
+            <div className="hidden md:block">
+              <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
+                <Shield className="h-10 w-10 text-white" />
+              </div>
             </div>
           </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Security Operations Center</h2>
-          <p className="text-gray-600">
-            Real-time monitoring and management of security operations across all locations.
-          </p>
         </div>
 
         {/* Critical Alerts */}
@@ -152,85 +74,120 @@ export default function AdminConsolePage() {
         )}
 
         {/* Real-time Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
-          <Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:shadow-lg transition-all duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Guards</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{realTimeStats.activeGuards}</div>
-              <p className="text-xs text-muted-foreground">Currently on duty</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Patrols</CardTitle>
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{realTimeStats.ongoingPatrols}</div>
-              <p className="text-xs text-muted-foreground">In progress</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Open Incidents</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${realTimeStats.openIncidents > 5 ? 'text-red-600' : realTimeStats.openIncidents > 0 ? 'text-yellow-600' : 'text-green-600'}`}>
-                {realTimeStats.openIncidents}
+              <div>
+                <CardTitle className="text-sm font-medium text-green-800">Active Guards</CardTitle>
+                <div className="text-3xl font-bold text-green-600 mt-2">{realTimeStats.activeGuards}</div>
               </div>
-              <p className="text-xs text-muted-foreground">Requiring attention</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Critical Alerts</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${realTimeStats.criticalAlerts > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {realTimeStats.criticalAlerts}
+              <div className="p-3 bg-green-100 rounded-full">
+                <UserCheck className="h-6 w-6 text-green-600" />
               </div>
-              <p className="text-xs text-muted-foreground">High priority</p>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-green-700">Currently on duty</p>
+              <div className="w-full bg-green-200 rounded-full h-2 mt-2">
+                <div className="bg-green-600 h-2 rounded-full" style={{ width: '78%' }}></div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200 hover:shadow-lg transition-all duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Response Time</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <CardTitle className="text-sm font-medium text-blue-800">Active Patrols</CardTitle>
+                <div className="text-3xl font-bold text-blue-600 mt-2">{realTimeStats.ongoingPatrols}</div>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-full">
+                <MapPin className="h-6 w-6 text-blue-600" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{realTimeStats.averageResponseTime}</div>
-              <p className="text-xs text-muted-foreground">Average response</p>
+              <p className="text-sm text-blue-700">Routes in progress</p>
+              <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
+                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '65%' }}></div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={`bg-gradient-to-br hover:shadow-lg transition-all duration-200 ${realTimeStats.openIncidents > 5 ? 'from-red-50 to-pink-50 border-red-200' : realTimeStats.openIncidents > 0 ? 'from-yellow-50 to-orange-50 border-yellow-200' : 'from-green-50 to-emerald-50 border-green-200'}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">System Status</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <CardTitle className={`text-sm font-medium ${realTimeStats.openIncidents > 5 ? 'text-red-800' : realTimeStats.openIncidents > 0 ? 'text-yellow-800' : 'text-green-800'}`}>Open Incidents</CardTitle>
+                <div className={`text-3xl font-bold mt-2 ${realTimeStats.openIncidents > 5 ? 'text-red-600' : realTimeStats.openIncidents > 0 ? 'text-yellow-600' : 'text-green-600'}`}>
+                  {realTimeStats.openIncidents}
+                </div>
+              </div>
+              <div className={`p-3 rounded-full ${realTimeStats.openIncidents > 5 ? 'bg-red-100' : realTimeStats.openIncidents > 0 ? 'bg-yellow-100' : 'bg-green-100'}`}>
+                <AlertTriangle className={`h-6 w-6 ${realTimeStats.openIncidents > 5 ? 'text-red-600' : realTimeStats.openIncidents > 0 ? 'text-yellow-600' : 'text-green-600'}`} />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">99.9%</div>
-              <p className="text-xs text-muted-foreground">Uptime today</p>
+              <p className={`text-sm ${realTimeStats.openIncidents > 5 ? 'text-red-700' : realTimeStats.openIncidents > 0 ? 'text-yellow-700' : 'text-green-700'}`}>
+                {realTimeStats.openIncidents === 0 ? 'All clear' : 'Requiring attention'}
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tabs */}
+        {/* Secondary Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="bg-white border-0 shadow-md hover:shadow-lg transition-all duration-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Response Time</p>
+                  <p className="text-2xl font-bold text-gray-900">{realTimeStats.averageResponseTime}</p>
+                  <p className="text-xs text-gray-500">Average response</p>
+                </div>
+                <div className="p-3 bg-purple-100 rounded-full">
+                  <Clock className="h-6 w-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border-0 shadow-md hover:shadow-lg transition-all duration-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">System Status</p>
+                  <p className="text-2xl font-bold text-gray-900">99.9%</p>
+                  <p className="text-xs text-gray-500">Uptime today</p>
+                </div>
+                <div className="p-3 bg-emerald-100 rounded-full">
+                  <Activity className="h-6 w-6 text-emerald-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border-0 shadow-md hover:shadow-lg transition-all duration-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Active Alerts</p>
+                  <p className={`text-2xl font-bold ${realTimeStats.criticalAlerts > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                    {realTimeStats.criticalAlerts}
+                  </p>
+                  <p className="text-xs text-gray-500">Critical priority</p>
+                </div>
+                <div className={`p-3 rounded-full ${realTimeStats.criticalAlerts > 0 ? 'bg-red-100' : 'bg-gray-100'}`}>
+                  <Zap className={`h-6 w-6 ${realTimeStats.criticalAlerts > 0 ? 'text-red-600' : 'text-gray-400'}`} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Dashboard Tabs */}
         <Tabs defaultValue="live-map" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="live-map">Live Operations Map</TabsTrigger>
-            <TabsTrigger value="incidents">Recent Incidents</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="settings">System Settings</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4 bg-gray-100 p-1 rounded-xl">
+            <TabsTrigger value="live-map" className="rounded-lg font-medium">Live Map</TabsTrigger>
+            <TabsTrigger value="incidents" className="rounded-lg font-medium">Incidents</TabsTrigger>
+            <TabsTrigger value="analytics" className="rounded-lg font-medium">Analytics</TabsTrigger>
+            <TabsTrigger value="quick-actions" className="rounded-lg font-medium">Quick Actions</TabsTrigger>
           </TabsList>
 
           {/* Live Map */}
@@ -369,121 +326,84 @@ export default function AdminConsolePage() {
             </div>
           </TabsContent>
 
-          {/* System Settings */}
-          <TabsContent value="settings">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card>
+          {/* Quick Actions */}
+          <TabsContent value="quick-actions">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 hover:shadow-lg transition-all duration-200">
                 <CardHeader>
-                  <CardTitle>Security Settings</CardTitle>
-                  <CardDescription>Configure security parameters</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Auto-Lock Timeout</p>
-                        <p className="text-sm text-gray-600">Automatic session timeout period</p>
-                      </div>
-                      <Badge variant="secondary">30 minutes</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">GPS Update Interval</p>
-                        <p className="text-sm text-gray-600">Location tracking frequency</p>
-                      </div>
-                      <Badge variant="secondary">10 minutes</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Emergency Alert Range</p>
-                        <p className="text-sm text-gray-600">Panic button notification radius</p>
-                      </div>
-                      <Badge variant="secondary">5 km</Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Notification Settings</CardTitle>
-                  <CardDescription>Alert and notification preferences</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Critical Incident Alerts</p>
-                        <p className="text-sm text-gray-600">Immediate notification for critical events</p>
-                      </div>
-                      <Badge variant="default" className="bg-green-100 text-green-800">Enabled</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Daily Reports</p>
-                        <p className="text-sm text-gray-600">Automated daily activity summaries</p>
-                      </div>
-                      <Badge variant="default" className="bg-green-100 text-green-800">Enabled</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">SMS Backup Alerts</p>
-                        <p className="text-sm text-gray-600">SMS notifications for critical alerts</p>
-                      </div>
-                      <Badge variant="secondary">Disabled</Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Users className="h-4 w-4 mr-2" />
+                  <CardTitle className="flex items-center text-blue-800">
+                    <Users className="h-5 w-5 mr-2" />
                     Guard Management
                   </CardTitle>
-                  <CardDescription>Manage security personnel and assignments</CardDescription>
+                  <CardDescription>Manage security personnel</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Guards Management</p>
-                        <p className="text-sm text-gray-600">View, edit, and manage all security guards</p>
-                      </div>
-                      <Link href="/dashboard/admin/guards">
-                        <Button size="sm">
-                          <Users className="h-3 w-3 mr-1" />
-                          Manage
-                        </Button>
-                      </Link>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Role Assignments</p>
-                        <p className="text-sm text-gray-600">Change guards to supervisors or dispatchers</p>
-                      </div>
-                      <Badge variant="secondary">Available</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Registration Tokens</p>
-                        <p className="text-sm text-gray-600">Create QR codes for new guards</p>
-                      </div>
-                      <Link href="/dashboard/admin/tokens">
-                        <Button size="sm" variant="outline">
-                          <QrCode className="h-3 w-3 mr-1" />
-                          Tokens
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
+                <CardContent className="space-y-4">
+                  <Link href="/dashboard/admin/guards">
+                    <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                      <Users className="h-4 w-4 mr-2" />
+                      Manage Guards
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/admin/tokens">
+                    <Button variant="outline" className="w-full border-blue-200 text-blue-700 hover:bg-blue-50">
+                      <QrCode className="h-4 w-4 mr-2" />
+                      Registration Tokens
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:shadow-lg transition-all duration-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-green-800">
+                    <Shield className="h-5 w-5 mr-2" />
+                    Security Operations
+                  </CardTitle>
+                  <CardDescription>Monitor and control security</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Link href="/dashboard/attendance">
+                    <Button className="w-full bg-green-600 hover:bg-green-700">
+                      <UserCheck className="h-4 w-4 mr-2" />
+                      Attendance Logs
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/patrols">
+                    <Button variant="outline" className="w-full border-green-200 text-green-700 hover:bg-green-50">
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Patrol Routes
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200 hover:shadow-lg transition-all duration-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-purple-800">
+                    <AlertTriangle className="h-5 w-5 mr-2" />
+                    Incident Response
+                  </CardTitle>
+                  <CardDescription>Emergency and incident handling</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Link href="/dashboard/incidents">
+                    <Button className="w-full bg-purple-600 hover:bg-purple-700">
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      View Incidents
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/live-tracking">
+                    <Button variant="outline" className="w-full border-purple-200 text-purple-700 hover:bg-purple-50">
+                      <Activity className="h-4 w-4 mr-2" />
+                      Live Tracking
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
         </Tabs>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }

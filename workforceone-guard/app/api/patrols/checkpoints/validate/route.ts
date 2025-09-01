@@ -1,0 +1,118 @@
+import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+
+export async function POST(request: NextRequest) {
+  try {
+    const { code, method, userId } = await request.json()
+
+    console.log('[Checkpoint Validation] Request:', { code, method, userId })
+
+    if (!code || !method || !userId) {
+      return NextResponse.json({ 
+        error: 'Missing required fields' 
+      }, { status: 400 })
+    }
+
+    // First try to find checkpoint by QR code
+    let checkpoint = null
+    
+    if (method === 'qr') {
+      const { data: qrCheckpoint, error: qrError } = await supabaseAdmin
+        .from('patrol_checkpoints')
+        .select(`
+          *,
+          route:route_id (name, description),
+          site:site_id (name, address)
+        `)
+        .eq('qr_code', code)
+        .eq('is_active', true)
+        .single()
+
+      if (!qrError && qrCheckpoint) {
+        checkpoint = qrCheckpoint
+      }
+    }
+
+    // If not found by QR, try checkpoint ID directly
+    if (!checkpoint) {
+      const { data: idCheckpoint, error: idError } = await supabaseAdmin
+        .from('patrol_checkpoints')
+        .select(`
+          *,
+          route:route_id (name, description),
+          site:site_id (name, address)
+        `)
+        .eq('id', code)
+        .eq('is_active', true)
+        .single()
+
+      if (!idError && idCheckpoint) {
+        checkpoint = idCheckpoint
+      }
+    }
+
+    if (!checkpoint) {
+      return NextResponse.json({ 
+        error: 'Checkpoint not found or inactive' 
+      }, { status: 404 })
+    }
+
+    // Check if user has permission to scan this checkpoint
+    const { data: userProfile } = await supabaseAdmin
+      .from('users')
+      .select(`
+        *,
+        role:role_id (name, permissions)
+      `)
+      .eq('id', userId)
+      .single()
+
+    if (!userProfile) {
+      return NextResponse.json({ 
+        error: 'User not found' 
+      }, { status: 404 })
+    }
+
+    // Verify user belongs to same organization as checkpoint
+    if (userProfile.organization_id !== checkpoint.organization_id) {
+      return NextResponse.json({ 
+        error: 'Unauthorized access to checkpoint' 
+      }, { status: 403 })
+    }
+
+    // Transform checkpoint data for response
+    const responseCheckpoint = {
+      id: checkpoint.id,
+      name: checkpoint.name,
+      siteId: checkpoint.site_id,
+      routeId: checkpoint.route_id,
+      instructions: checkpoint.instructions,
+      requiredActions: checkpoint.required_actions || [],
+      qrCode: checkpoint.qr_code,
+      nfcEnabled: checkpoint.nfc_enabled || false,
+      location: checkpoint.location ? {
+        lat: checkpoint.location.lat,
+        lng: checkpoint.location.lng
+      } : null,
+      metadata: checkpoint.metadata
+    }
+
+    console.log('[Checkpoint Validation] Success:', responseCheckpoint.id)
+
+    return NextResponse.json({
+      success: true,
+      checkpoint: responseCheckpoint
+    })
+
+  } catch (error) {
+    console.error('[Checkpoint Validation] Error:', error)
+    return NextResponse.json({ 
+      error: 'Internal server error' 
+    }, { status: 500 })
+  }
+}

@@ -4,6 +4,7 @@ import { useAuth, usePermissions } from '@/lib/auth/hooks'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import AdminLayout from '@/components/layout/AdminLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -289,86 +290,41 @@ export default function GuardsManagementPage() {
     }
   }
 
-  if (loading || isLoading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null
-  }
-
-  // Show access denied if user doesn't have admin permissions
-  if (permissions && !permissions.canRead('admin')) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <Shield className="h-12 w-12 text-red-600 mx-auto mb-4" />
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>
-              You don't have permission to access guard management.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center">
-            <Link href="/dashboard">
-              <Button>Return to Dashboard</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      <AdminLayout>
+        <div className="p-6">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600">Loading guards...</span>
+          </div>
+        </div>
+      </AdminLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <Link href="/dashboard/admin">
-                <Button variant="ghost" size="sm" className="mr-4">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Admin
-                </Button>
-              </Link>
-              <div className="p-2 bg-blue-100 rounded-full mr-3">
-                <Users className="h-6 w-6 text-blue-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900">Guards Management</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                {filteredGuards.filter(g => g.is_active).length} Active Guards
-              </Badge>
-              <span className="text-sm text-gray-600">
-                {user.first_name} {user.last_name}
-              </span>
-            </div>
+    <AdminLayout>
+      <div className="p-6 space-y-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Guards Management</h1>
+            <p className="text-gray-600 mt-1">Manage security personnel and their assignments</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+              {filteredGuards.filter(g => g.is_active).length} Active Guards
+            </Badge>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
           <Alert variant="destructive" className="mb-6">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-
-        {/* Header Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Security Personnel</h2>
-          <p className="text-gray-600">
-            Manage guard profiles, assignments, and permissions across your organization.
-          </p>
-        </div>
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -783,7 +739,7 @@ export default function GuardsManagementPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }

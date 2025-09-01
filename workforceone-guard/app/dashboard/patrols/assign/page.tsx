@@ -66,6 +66,8 @@ export default function PatrolAssignPage() {
         loadGuards()
       ])
 
+      console.log('Loaded data:', { patrolsData, routesData, guardsData })
+
       setPatrols(patrolsData)
       setRoutes(routesData)
       setGuards(guardsData)
@@ -78,14 +80,18 @@ export default function PatrolAssignPage() {
 
   const loadGuards = async (): Promise<Guard[]> => {
     try {
-      // Mock implementation - would come from a proper user service
-      // Using proper UUIDs to match database expectations
-      return [
-        { id: 'f0eebc99-9c0b-4ef8-bb6d-6bb9bd380a16', first_name: 'John', last_name: 'Doe', email: 'john.doe@example.com' },
-        { id: 'f1eebc99-9c0b-4ef8-bb6d-6bb9bd380a17', first_name: 'Jane', last_name: 'Smith', email: 'jane.smith@example.com' },
-        { id: 'f2eebc99-9c0b-4ef8-bb6d-6bb9bd380a18', first_name: 'Mike', last_name: 'Johnson', email: 'mike.johnson@example.com' },
-        { id: 'f3eebc99-9c0b-4ef8-bb6d-6bb9bd380a19', first_name: 'Sarah', last_name: 'Wilson', email: 'sarah.wilson@example.com' }
-      ]
+      if (!user?.organization_id) return []
+
+      const response = await fetch(`/api/guards?organization_id=${user.organization_id}`, {
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch guards')
+      }
+
+      const data = await response.json()
+      return data.guards || []
     } catch (error) {
       console.error('Error loading guards:', error)
       return []
@@ -107,7 +113,8 @@ export default function PatrolAssignPage() {
         route_id: newPatrol.route_id,
         start_time: newPatrol.start_time || new Date().toISOString(),
         total_checkpoints: selectedRoute?.checkpoints.length || 0,
-        notes: newPatrol.notes
+        notes: newPatrol.notes,
+        created_by: user!.id
       })
 
       if (result.success) {

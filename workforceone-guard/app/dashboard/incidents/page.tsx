@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth/hooks'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import AdminLayout from '@/components/layout/AdminLayout'
 import { IncidentService, Incident, INCIDENT_TYPES } from '@/lib/incidents/service'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeft, Shield, LogOut, Plus, AlertTriangle, Clock, User, MapPin, Camera, FileText } from 'lucide-react'
+import { Shield, Plus, AlertTriangle, Clock, User, MapPin, Camera, FileText } from 'lucide-react'
 import { FileUpload } from '@/components/ui/file-upload'
 
 export default function IncidentsPage() {
@@ -155,10 +156,6 @@ export default function IncidentsPage() {
     return incidentType?.name || type
   }
 
-  const handleSignOut = async () => {
-    await signOut()
-    router.push('/auth/login')
-  }
 
   if (loading || loadingData) {
     return (
@@ -173,46 +170,30 @@ export default function IncidentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <Link href="/dashboard">
-                <Button variant="ghost" size="sm" className="mr-4">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Button>
-              </Link>
-              <div className="p-2 bg-red-100 rounded-full mr-3">
-                <AlertTriangle className="h-6 w-6 text-red-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900">Incident Management</h1>
+    <AdminLayout>
+      <div className="p-6 space-y-6">
+        {/* Page Header */}
+        <div className="bg-gradient-to-r from-red-600 to-pink-600 rounded-2xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Incident Management</h1>
+              <p className="text-red-100">
+                Report, track, and manage security incidents and emergencies
+              </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                {user.first_name} {user.last_name}
-              </span>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
+            <div className="p-3 bg-white/20 rounded-xl">
+              <AlertTriangle className="h-8 w-8" />
             </div>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header Section */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Security Incidents</h2>
-            <p className="text-gray-600">
-              Report, track, and manage security incidents and emergencies.
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Security Incidents</h2>
+            <p className="text-gray-600">Report, track, and manage security incidents and emergencies.</p>
           </div>
+          <div>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button>
@@ -304,6 +285,7 @@ export default function IncidentsPage() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Critical Incidents Alert */}
@@ -595,7 +577,7 @@ export default function IncidentsPage() {
             </div>
           </TabsContent>
         </Tabs>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }

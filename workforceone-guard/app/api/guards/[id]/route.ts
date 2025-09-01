@@ -7,10 +7,10 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const guardId = params.id
+    const { id: guardId } = await params
 
     const { data: guard, error } = await supabaseAdmin
       .from('users')
@@ -65,10 +65,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const guardId = params.id
+    const { id: guardId } = await params
     const updates = await request.json()
 
     // Validate required fields
@@ -141,10 +141,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const guardId = params.id
+    const { id: guardId } = await params
 
     // First, check if the guard exists and get their auth user ID
     const { data: guard, error: fetchError } = await supabaseAdmin

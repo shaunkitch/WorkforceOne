@@ -1,36 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { getAuthenticatedUser, createApiClient, unauthorizedResponse } from '@/lib/supabase/api'
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            // No-op for API routes
-          },
-          remove(name: string, options: CookieOptions) {
-            // No-op for API routes
-          },
-        },
-      }
-    )
-    
     // Check if user is admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { user, error: authError } = await getAuthenticatedUser()
     if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return unauthorizedResponse()
     }
+    
+    const supabase = await createApiClient()
 
     const body = await request.json()
     const { type = 'static', siteId, validHours = 24 } = body
@@ -90,7 +69,7 @@ export async function POST(request: NextRequest) {
         validFrom: data.valid_from,
         validUntil: data.valid_until,
         isActive: data.is_active,
-        dataUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://workforceone-guard.vercel.app'}/attendance/scan?code=${data.code}`
+        dataUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.workforceone.co.za'}/scan?code=${data.code}`
       }
     })
 
@@ -105,33 +84,13 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            // No-op for API routes
-          },
-          remove(name: string, options: CookieOptions) {
-            // No-op for API routes
-          },
-        },
-      }
-    )
-    
     // Check if user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { user, error: authError } = await getAuthenticatedUser()
     if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return unauthorizedResponse()
     }
+    
+    const supabase = await createApiClient()
 
     // Return mock QR codes for now
     const mockQRCodes = [
@@ -143,7 +102,7 @@ export async function GET(request: NextRequest) {
         validFrom: new Date().toISOString(),
         validUntil: null,
         isActive: true,
-        dataUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://workforceone-guard.vercel.app'}/attendance/scan?code=STC-DEMO-123-ABC`
+        dataUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.workforceone.co.za'}/scan?code=STC-DEMO-123-ABC`
       },
       {
         id: '2', 
@@ -153,7 +112,7 @@ export async function GET(request: NextRequest) {
         validFrom: new Date().toISOString(),
         validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
         isActive: true,
-        dataUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://workforceone-guard.vercel.app'}/attendance/scan?code=RND-DEMO-456-DEF`
+        dataUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.workforceone.co.za'}/scan?code=RND-DEMO-456-DEF`
       }
     ]
 

@@ -1,0 +1,161 @@
+import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+
+export async function POST(request: NextRequest) {
+  try {
+    const { 
+      checkpointId, 
+      siteId, 
+      routeId, 
+      userId, 
+      scanMethod, 
+      location, 
+      notes 
+    } = await request.json()
+
+    console.log('[Checkpoint Visit] Recording visit:', { 
+      checkpointId, 
+      userId, 
+      scanMethod 
+    })
+
+    // Validate required fields
+    if (!checkpointId || !userId || !scanMethod) {
+      return NextResponse.json({ 
+        error: 'Missing required fields' 
+      }, { status: 400 })
+    }
+
+    // Get current active patrol for this user
+    const { data: activePatrol } = await supabaseAdmin
+      .from('patrols')
+      .select('id, route_id, status')
+      .eq('guard_id', userId)
+      .eq('status', 'in_progress')
+      .order('start_time', { ascending: false })
+      .limit(1)
+      .single()
+
+    let patrolId = activePatrol?.id
+    
+    // If no active patrol, create one
+    if (!patrolId) {
+      const { data: newPatrol, error: patrolError } = await supabaseAdmin
+        .from('patrols')
+        .insert({
+          organization_id: (await supabaseAdmin
+            .from('users')
+            .select('organization_id')
+            .eq('id', userId)
+            .single()
+          ).data?.organization_id,
+          guard_id: userId,
+          route_id: routeId,
+          status: 'in_progress',
+          start_time: new Date().toISOString(),
+          checkpoints_completed: 0,
+          total_checkpoints: 1
+        })
+        .select()
+        .single()
+
+      if (patrolError) {
+        console.error('Error creating patrol:', patrolError)
+        return NextResponse.json({ 
+          error: 'Failed to create patrol session' 
+        }, { status: 500 })
+      }
+
+      patrolId = newPatrol.id
+    }
+
+    // Check for duplicate visits within last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+    const { data: recentVisit } = await supabaseAdmin
+      .from('checkpoint_visits')
+      .select('id')
+      .eq('patrol_id', patrolId)
+      .eq('checkpoint_id', checkpointId)
+      .gte('visited_at', fiveMinutesAgo.toISOString())
+      .single()
+
+    if (recentVisit) {
+      return NextResponse.json({ 
+        error: 'Checkpoint already scanned within the last 5 minutes' 
+      }, { status: 409 })
+    }
+
+    // Record the checkpoint visit
+    const { data: visit, error: visitError } = await supabaseAdmin
+      .from('checkpoint_visits')
+      .insert({
+        patrol_id: patrolId,
+        checkpoint_id: checkpointId,
+        guard_id: userId,
+        visited_at: new Date().toISOString(),
+        scan_method: scanMethod,
+        location_lat: location?.lat,
+        location_lng: location?.lng,
+        location_accuracy: location?.accuracy,
+        notes: notes || '',
+        metadata: {
+          deviceInfo: {
+            userAgent: request.headers.get('user-agent'),
+            timestamp: new Date().toISOString()
+          }
+        }
+      })
+      .select()
+      .single()
+
+    if (visitError) {
+      console.error('Error recording visit:', visitError)
+      return NextResponse.json({ 
+        error: 'Failed to record checkpoint visit' 
+      }, { status: 500 })
+    }
+
+    // Update patrol checkpoint count
+    const { data: visitCount } = await supabaseAdmin
+      .from('checkpoint_visits')
+      .select('id', { count: 'exact' })
+      .eq('patrol_id', patrolId)
+
+    await supabaseAdmin
+      .from('patrols')
+      .update({ 
+        checkpoints_completed: visitCount?.length || 1,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', patrolId)
+
+    // Update checkpoint last visited timestamp
+    await supabaseAdmin
+      .from('patrol_checkpoints')
+      .update({ 
+        last_visited: new Date().toISOString(),
+        visit_count: supabaseAdmin.sql`visit_count + 1`
+      })
+      .eq('id', checkpointId)
+
+    console.log('[Checkpoint Visit] Success:', visit.id)
+
+    return NextResponse.json({
+      success: true,
+      visitId: visit.id,
+      patrolId,
+      message: 'Checkpoint visit recorded successfully'
+    })
+
+  } catch (error) {
+    console.error('[Checkpoint Visit] Error:', error)
+    return NextResponse.json({ 
+      error: 'Internal server error' 
+    }, { status: 500 })
+  }
+}

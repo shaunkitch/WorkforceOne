@@ -1,9 +1,8 @@
 'use client'
 
 import { useAuth } from '@/lib/auth/hooks'
-import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import AdminLayout from '@/components/layout/AdminLayout'
 import { RegistrationTokenService, RegistrationToken, CreateTokenData } from '@/lib/registration/tokens'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeft, Shield, LogOut, Plus, QrCode, Key, Copy, Trash2, Clock, Users, Settings } from 'lucide-react'
+import { Plus, QrCode, Key, Copy, Trash2, Clock, Users, Settings } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 
 interface Role {
@@ -27,8 +26,7 @@ interface Department {
 }
 
 export default function RegistrationTokensPage() {
-  const { user, loading, signOut } = useAuth()
-  const router = useRouter()
+  const { user } = useAuth()
   const [tokens, setTokens] = useState<RegistrationToken[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
@@ -41,12 +39,6 @@ export default function RegistrationTokensPage() {
     expires_in_hours: 24,
     usage_limit: 10
   })
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/auth/login')
-    }
-  }, [user, loading, router])
 
   useEffect(() => {
     if (user) {
@@ -158,63 +150,42 @@ export default function RegistrationTokensPage() {
     )
   }
 
-  const handleSignOut = async () => {
-    await signOut()
-    router.push('/auth/login')
-  }
-
-  if (loading || loadingData) {
+  if (loadingData) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-      </div>
+      <AdminLayout>
+        <div className="p-6">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600">Loading registration tokens...</span>
+          </div>
+        </div>
+      </AdminLayout>
     )
   }
 
-  if (!user) {
-    return null
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <Link href="/dashboard/admin">
-                <Button variant="ghost" size="sm" className="mr-4">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Admin
-                </Button>
-              </Link>
-              <div className="p-2 bg-blue-100 rounded-full mr-3">
-                <Key className="h-6 w-6 text-blue-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900">Registration Tokens</h1>
+    <AdminLayout>
+      <div className="p-6 space-y-8">
+        {/* Header Section */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Registration Tokens</h1>
+              <p className="text-blue-100">
+                Create QR codes and 5-letter access codes for guards to join your organization.
+              </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                {user.first_name} {user.last_name}
-              </span>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
+            <div className="p-3 bg-white/20 rounded-xl">
+              <Key className="h-8 w-8" />
             </div>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
-        <div className="flex justify-between items-center mb-8">
+        {/* Actions Section */}
+        <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Guard Registration</h2>
-            <p className="text-gray-600">
-              Create QR codes and 5-letter access codes for guards to join your organization.
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900">Manage Tokens</h2>
+            <p className="text-gray-600">Create and manage registration tokens</p>
           </div>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
@@ -445,9 +416,8 @@ export default function RegistrationTokensPage() {
             </Table>
           </CardContent>
         </Card>
-      </main>
 
-      {/* QR Code Dialog */}
+        {/* QR Code Dialog */}
       <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
@@ -481,6 +451,7 @@ export default function RegistrationTokensPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }

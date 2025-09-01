@@ -1,78 +1,36 @@
 'use client'
 
 import { useAuth, usePermissions } from '@/lib/auth/hooks'
-import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
-import Link from 'next/link'
+import AdminLayout from '@/components/layout/AdminLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Shield, MapPin, AlertTriangle, Users, Activity, LogOut, Scan, Settings, QrCode, UserCheck } from 'lucide-react'
+import { Shield, MapPin, AlertTriangle, Users, Activity, Scan, Settings, UserCheck } from 'lucide-react'
+import Link from 'next/link'
 
 export default function DashboardPage() {
-  const { user, loading, signOut } = useAuth()
+  const { user } = useAuth()
   const permissions = usePermissions()
-  const router = useRouter()
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/auth/login')
-    }
-  }, [user, loading, router])
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null
-  }
-
-  const handleSignOut = async () => {
-    await signOut()
-    router.push('/auth/login')
-  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-full mr-3">
-                <Shield className="h-6 w-6 text-blue-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900">WorkforceOne Guard</h1>
+    <AdminLayout>
+      <div className="p-6 space-y-8">
+        {/* Welcome Section */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Security Dashboard</h1>
+              <p className="text-blue-100">
+                Monitor patrols, manage incidents, and track security operations in real-time.
+              </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                Welcome, {user.first_name} {user.last_name}
-              </span>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
+            <div className="p-3 bg-white/20 rounded-xl">
+              <Shield className="h-8 w-8" />
             </div>
           </div>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Security Dashboard</h2>
-          <p className="text-gray-600">
-            Monitor patrols, manage incidents, and track security operations in real-time.
-          </p>
-        </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Patrols</CardTitle>
@@ -236,29 +194,50 @@ export default function DashboardPage() {
 
           {/* Admin Console - Only show for users with admin permissions */}
           {permissions?.canRead('admin') && (
-            <Link href="/dashboard/admin">
-              <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Settings className="h-5 w-5 mr-2 text-red-600" />
-                    Admin Console
-                  </CardTitle>
-                  <CardDescription>
-                    Real-time monitoring and system management
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full" variant="outline">
-                    Open Console
-                  </Button>
-                </CardContent>
-              </Card>
-            </Link>
+            <>
+              <Link href="/dashboard/admin">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Settings className="h-5 w-5 mr-2 text-red-600" />
+                      Admin Console
+                    </CardTitle>
+                    <CardDescription>
+                      Real-time monitoring and system management
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button className="w-full" variant="outline">
+                      Open Console
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              <Link href="/dashboard/admin/settings">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Settings className="h-5 w-5 mr-2 text-purple-600" />
+                      System Settings
+                    </CardTitle>
+                    <CardDescription>
+                      Configure organization, roles, and system preferences
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button className="w-full" variant="outline">
+                      Configure System
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Link>
+            </>
           )}
         </div>
 
         {/* Recent Activity */}
-        <Card className="mt-8">
+        <Card>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
             <CardDescription>Latest security events and updates</CardDescription>
@@ -283,7 +262,7 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }

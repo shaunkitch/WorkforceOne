@@ -153,49 +153,26 @@ export class PatrolService {
     start_time?: string
     total_checkpoints?: number
     notes?: string
+    created_by?: string
   }): Promise<{ success: boolean; patrol?: Patrol; error?: string }> {
     try {
-      const { data, error } = await supabase
-        .from('patrols')
-        .insert({
-          ...patrol,
-          status: 'scheduled',
-          checkpoints_completed: 0
-        })
-        .select(`
-          *,
-          guard:guard_id (first_name, last_name, email),
-          route:route_id (
-            name,
-            description,
-            checkpoints,
-            estimated_duration
-          )
-        `)
-        .single()
+      const response = await fetch('/api/patrols/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(patrol)
+      })
 
-      if (error) {
-        console.error('Error creating patrol:', error)
-        return { success: false, error: error.message }
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Error creating patrol:', result)
+        return { success: false, error: result.error || 'Failed to create patrol' }
       }
 
-      // Log activity
-      await supabase
-        .from('activity_logs')
-        .insert({
-          organization_id: patrol.organization_id,
-          user_id: patrol.guard_id,
-          module: 'guard',
-          action: 'patrol_created',
-          entity_type: 'patrol',
-          entity_id: data.id,
-          metadata: {
-            route_id: patrol.route_id,
-            total_checkpoints: patrol.total_checkpoints
-          }
-        })
-
-      return { success: true, patrol: data }
+      return { success: result.success, patrol: result.patrol }
     } catch (error) {
       console.error('Error in createPatrol:', error)
       return { success: false, error: 'Failed to create patrol' }
@@ -290,7 +267,9 @@ export class PatrolService {
         include_checkpoints: 'true'
       })
 
-      const response = await fetch(`/api/patrols/routes?${params}`)
+      const response = await fetch(`/api/patrols/routes?${params}`, {
+        credentials: 'include'
+      })
       const result = await response.json()
 
       if (!response.ok) {
@@ -328,6 +307,7 @@ export class PatrolService {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           ...route,
           is_active: true
@@ -367,6 +347,7 @@ export class PatrolService {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           id,
           organization_id: organizationId,
@@ -402,7 +383,8 @@ export class PatrolService {
       })
 
       const response = await fetch(`/api/patrols/routes?${params}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include'
       })
 
       const result = await response.json()

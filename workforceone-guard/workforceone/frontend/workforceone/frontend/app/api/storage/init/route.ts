@@ -1,0 +1,38 @@
+import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+
+export async function POST() {
+  try {
+    console.log('Initializing storage bucket for incident attachments...')
+
+    // Create the incident-attachments bucket
+    const { data: bucket, error: bucketError } = await supabaseAdmin.storage
+      .createBucket('incident-attachments', {
+        public: true,
+        allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
+        fileSizeLimit: 5242880, // 5MB
+      })
+
+    if (bucketError && !bucketError.message.includes('already exists')) {
+      console.error('Bucket creation error:', bucketError)
+      return NextResponse.json({ error: 'Failed to create bucket', details: bucketError }, { status: 500 })
+    }
+
+    console.log('Bucket creation result:', bucket || 'Already exists')
+
+    return NextResponse.json({
+      success: true,
+      message: 'Storage bucket initialized successfully',
+      bucket: bucket || 'incident-attachments'
+    })
+
+  } catch (error) {
+    console.error('Storage initialization error:', error)
+    return NextResponse.json({ error: 'Failed to initialize storage', details: error }, { status: 500 })
+  }
+}

@@ -7,10 +7,10 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const guardId = params.id
+    const { id: guardId } = await params
     const { is_active } = await request.json()
 
     if (typeof is_active !== 'boolean') {

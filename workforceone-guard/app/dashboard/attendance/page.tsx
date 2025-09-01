@@ -4,14 +4,19 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth/hooks'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import AdminLayout from '@/components/layout/AdminLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import QRCode from 'react-qr-code'
+import { supabase } from '@/lib/supabase/client'
+import { AttendanceAnalyticsClient } from '@/lib/services/attendance-analytics-client'
+import { AttendanceMetrics, GuardPerformance, AttendanceTrend } from '@/lib/services/attendance-analytics'
+import { OfflineAttendanceService } from '@/lib/services/offline-attendance'
 import { 
-  ArrowLeft, Shield, LogOut, QrCode, Users, Clock, MapPin, 
+  Shield, QrCode, Users, Clock, MapPin, 
   Calendar, Download, RefreshCw, CheckCircle, XCircle, 
   UserCheck, UserX, Clipboard
 } from 'lucide-react'
@@ -63,6 +68,14 @@ export default function AttendancePage() {
   const [qrType, setQrType] = useState<'static' | 'random'>('static')
   const [activeTab, setActiveTab] = useState('overview')
   const [generatingQR, setGeneratingQR] = useState(false)
+  
+  // Enhanced analytics state
+  const [metrics, setMetrics] = useState<AttendanceMetrics | null>(null)
+  const [guardPerformance, setGuardPerformance] = useState<GuardPerformance[]>([])
+  const [trends, setTrends] = useState<AttendanceTrend[]>([])
+  const [liveStatus, setLiveStatus] = useState<any>(null)
+  const [offlineStats, setOfflineStats] = useState<any>(null)
+  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('week')
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -70,21 +83,75 @@ export default function AttendancePage() {
     } else if (user) {
       loadAttendanceData()
       loadQRCodes()
+      loadEnhancedAnalytics()
+      
+      // Setup offline sync and real-time updates
+      OfflineAttendanceService.setupAutoSync()
+      
+      // Refresh data every 30 seconds
+      const interval = setInterval(() => {
+        loadLiveStatus()
+        loadOfflineStats()
+      }, 30000)
+      
+      return () => clearInterval(interval)
     }
-  }, [user, authLoading, router])
+  }, [user, authLoading, router, dateRange])
 
   const loadAttendanceData = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/attendance/records', {
-        credentials: 'include'
-      })
-      const data = await response.json()
       
-      if (data.success) {
-        setAttendanceRecords(data.records || [])
-        calculateStatistics(data.records || [])
+      // Get attendance records directly from Supabase
+      const { data: records, error } = await supabase
+        .from('shift_attendance')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(100)
+      
+      if (error) {
+        console.error('Error fetching attendance records:', error)
+        return
       }
+      
+      // Get unique user IDs from records
+      const userIds = [...new Set((records || []).map(r => r.user_id))].filter(Boolean)
+      
+      // Fetch user details separately if we have user IDs
+      let usersMap = new Map()
+      if (userIds.length > 0) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, first_name, last_name, email')
+          .in('id', userIds)
+        
+        if (users) {
+          users.forEach(user => {
+            usersMap.set(user.id, user)
+          })
+        }
+      }
+      
+      // Transform records to match component format
+      const transformedRecords = (records || []).map(record => {
+        const user = usersMap.get(record.user_id)
+        return {
+          id: record.id,
+          userId: record.user_id,
+          userName: user ? `${user.first_name} ${user.last_name}` : 'Unknown',
+          userEmail: user?.email,
+          shiftType: record.shift_type,
+          timestamp: record.timestamp,
+          latitude: record.latitude,
+          longitude: record.longitude,
+          accuracy: record.accuracy,
+          qrCodeId: record.qr_code_id,
+          qrCodeType: record.qr_code_type
+        }
+      })
+      
+      setAttendanceRecords(transformedRecords)
+      calculateStatistics(transformedRecords)
     } catch (error) {
       console.error('Error loading attendance data:', error)
     } finally {
@@ -94,14 +161,31 @@ export default function AttendancePage() {
 
   const loadQRCodes = async () => {
     try {
-      const response = await fetch('/api/attendance/qr-code', {
-        credentials: 'include'
-      })
-      const data = await response.json()
+      // Get QR codes directly from Supabase
+      const { data: qrData, error } = await supabase
+        .from('qr_codes')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
       
-      if (data.success) {
-        setQrCodes(data.qrCodes || [])
+      if (error) {
+        console.error('Error fetching QR codes:', error)
+        return
       }
+      
+      // Transform QR codes to match component format
+      const transformedCodes = (qrData || []).map(qr => ({
+        id: qr.id,
+        code: qr.code,
+        type: qr.type,
+        siteId: qr.site_id,
+        validFrom: qr.valid_from,
+        validUntil: qr.valid_until,
+        isActive: qr.is_active,
+        dataUrl: `${window.location.origin}/scan?code=${qr.code}`
+      }))
+      
+      setQrCodes(transformedCodes)
     } catch (error) {
       console.error('Error loading QR codes:', error)
     }
@@ -110,21 +194,38 @@ export default function AttendancePage() {
   const generateNewQRCode = async () => {
     try {
       setGeneratingQR(true)
-      const response = await fetch('/api/attendance/qr-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
+      
+      // Generate QR code directly with Supabase
+      const timestamp = Date.now().toString(36)
+      const random = Math.random().toString(36).substr(2, 8)
+      const prefix = qrType === 'static' ? 'STC' : 'RND'
+      const code = `${prefix}-GENERAL-${timestamp}-${random}`.toUpperCase()
+      
+      const validFrom = new Date()
+      const validUntil = qrType === 'random' 
+        ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+        : null
+      
+      const { data, error } = await supabase
+        .from('qr_codes')
+        .insert({
+          code,
           type: qrType,
-          validHours: qrType === 'random' ? 24 : undefined
+          valid_from: validFrom.toISOString(),
+          valid_until: validUntil?.toISOString(),
+          is_active: true,
+          created_by: user?.id
         })
-      })
+        .select()
+        .single()
       
-      const data = await response.json()
-      
-      if (data.success) {
-        await loadQRCodes()
+      if (error) {
+        console.error('Error creating QR code:', error)
+        return
       }
+      
+      // Reload QR codes
+      await loadQRCodes()
     } catch (error) {
       console.error('Error generating QR code:', error)
     } finally {
@@ -164,9 +265,86 @@ export default function AttendancePage() {
     // Could add a toast notification here
   }
 
-  const handleSignOut = async () => {
-    await signOut()
-    router.push('/auth/login')
+
+  // Enhanced analytics functions
+  const loadEnhancedAnalytics = async () => {
+    if (!user?.organization_id) return
+    
+    try {
+      const { startDate, endDate } = getDateRange()
+      
+      // Load comprehensive metrics
+      const metricsData = await AttendanceAnalyticsClient.getAttendanceMetrics(
+        user.organization_id,
+        startDate,
+        endDate
+      )
+      setMetrics(metricsData)
+      
+      // Load guard performance
+      const performanceData = await AttendanceAnalyticsClient.getGuardPerformance(
+        user.organization_id,
+        startDate,
+        endDate
+      )
+      setGuardPerformance(performanceData)
+      
+      // Load trends
+      const trendsData = await AttendanceAnalyticsClient.getAttendanceTrends(
+        user.organization_id,
+        dateRange === 'today' ? 1 : dateRange === 'week' ? 7 : 30
+      )
+      setTrends(trendsData)
+      
+    } catch (error) {
+      console.error('Error loading enhanced analytics:', error)
+    }
+  }
+
+  const loadLiveStatus = async () => {
+    if (!user?.organization_id) return
+    
+    try {
+      const status = await AttendanceAnalyticsClient.getLiveAttendanceStatus(user.organization_id)
+      setLiveStatus(status)
+    } catch (error) {
+      console.error('Error loading live status:', error)
+    }
+  }
+
+  const loadOfflineStats = () => {
+    const stats = OfflineAttendanceService.getSyncStats()
+    setOfflineStats(stats)
+  }
+
+  const getDateRange = () => {
+    const endDate = new Date()
+    const startDate = new Date()
+    
+    switch (dateRange) {
+      case 'today':
+        startDate.setHours(0, 0, 0, 0)
+        break
+      case 'week':
+        startDate.setDate(startDate.getDate() - 7)
+        break
+      case 'month':
+        startDate.setDate(startDate.getDate() - 30)
+        break
+    }
+    
+    return { startDate, endDate }
+  }
+
+  const handleSyncOfflineRecords = async () => {
+    try {
+      const result = await OfflineAttendanceService.syncPendingRecords()
+      console.log('Sync result:', result)
+      loadOfflineStats()
+      loadEnhancedAnalytics()
+    } catch (error) {
+      console.error('Sync error:', error)
+    }
   }
 
   if (authLoading || loading) {
@@ -180,38 +358,22 @@ export default function AttendancePage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <Link href="/dashboard">
-                <Button variant="ghost" size="sm" className="mr-4">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Button>
-              </Link>
-              <div className="p-2 bg-blue-100 rounded-full mr-3">
-                <Shield className="h-6 w-6 text-blue-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900">Guard Attendance Monitor</h1>
+    <AdminLayout>
+      <div className="p-6 space-y-6">
+        {/* Page Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Guard Attendance Monitor</h1>
+              <p className="text-blue-100">
+                Track guard check-ins, shifts, and QR code attendance monitoring
+              </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                {user.first_name} {user.last_name}
-              </span>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
+            <div className="p-3 bg-white/20 rounded-xl">
+              <UserCheck className="h-8 w-8" />
             </div>
           </div>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
@@ -499,7 +661,7 @@ export default function AttendancePage() {
             </Card>
           </TabsContent>
         </Tabs>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }

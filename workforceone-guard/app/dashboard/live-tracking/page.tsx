@@ -4,9 +4,10 @@ import { useAuth } from '@/lib/auth/hooks'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import Link from 'next/link'
+import AdminLayout from '@/components/layout/AdminLayout'
 import SimpleLiveMap from '@/components/maps/SimpleLiveMap'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Shield, LogOut, MapPin } from 'lucide-react'
+import { Shield, MapPin } from 'lucide-react'
 
 export default function LiveTrackingPage() {
   const { user, loading, signOut } = useAuth()
@@ -30,67 +31,44 @@ export default function LiveTrackingPage() {
     return null
   }
 
-  const handleSignOut = async () => {
-    await signOut()
-    router.push('/auth/login')
-  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <Link href="/dashboard">
-                <Button variant="ghost" size="sm" className="mr-4">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Button>
-              </Link>
-              <div className="p-2 bg-blue-100 rounded-full mr-3">
-                <Shield className="h-6 w-6 text-blue-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900">Live Guard Tracking</h1>
+    <AdminLayout>
+      <div className="p-6 space-y-6">
+        {/* Page Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Live Guard Tracking</h1>
+              <p className="text-blue-100">
+                Monitor live GPS locations and status of all active security personnel
+              </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                {user.first_name} {user.last_name}
-              </span>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
+            <div className="p-3 bg-white/20 rounded-xl">
+              <MapPin className="h-8 w-8" />
             </div>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
-                <MapPin className="h-8 w-8 mr-3 text-blue-600" />
-                Real-Time Guard Tracking
-              </h2>
-              <p className="text-gray-600">
-                Monitor live GPS locations and status of all active security personnel.
-              </p>
-            </div>
-            <div className="flex space-x-2">
-              <Link href="/dashboard/map">
-                <Button variant="outline" size="sm">
-                  Google Maps Version
-                </Button>
-              </Link>
-              <Link href="/test-livemap">
-                <Button variant="outline" size="sm">
-                  Debug View
-                </Button>
-              </Link>
-            </div>
+        {/* Controls Section */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Real-Time Tracking</h2>
+            <p className="text-gray-600">
+              Monitor live GPS locations and status of all active security personnel.
+            </p>
+          </div>
+          <div className="flex space-x-2">
+            <Link href="/dashboard/map">
+              <Button variant="outline" size="sm">
+                Google Maps Version
+              </Button>
+            </Link>
+            <Link href="/test-livemap">
+              <Button variant="outline" size="sm">
+                Debug View
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -113,7 +91,7 @@ export default function LiveTrackingPage() {
             </p>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }
