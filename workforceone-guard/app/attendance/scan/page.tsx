@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth/hooks'
 import { supabase } from '@/lib/supabase/client'
@@ -20,7 +20,7 @@ interface QRCodeData {
   is_active: boolean
 }
 
-export default function AttendanceScanPage() {
+function AttendanceScanContent() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -344,5 +344,21 @@ export default function AttendanceScanPage() {
         </Card>
       </main>
     </div>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    </div>
+  )
+}
+
+export default function AttendanceScanPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <AttendanceScanContent />
+    </Suspense>
   )
 }
