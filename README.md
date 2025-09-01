@@ -1,4 +1,10 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WorkforceOne Guard System
+
+A modern workforce management and security patrol system built with Next.js 15.5.0 and Supabase.
+
+**Production URL:** www.workforceone.co.za  
+**Version:** 0.1.1  
+**Last Updated:** September 1, 2025
 
 ## Getting Started
 
