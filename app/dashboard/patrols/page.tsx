@@ -12,6 +12,9 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Shield, Plus, MapPin, Clock, User, CheckCircle, Circle, Play, Square, Route, UserCheck, Activity } from 'lucide-react'
+import CreateCheckpointModal from '@/components/patrols/CreateCheckpointModal'
+import CreateRouteModal from '@/components/patrols/CreateRouteModal'
+import AssignRouteModal from '@/components/patrols/AssignRouteModal'
 
 export default function PatrolsPage() {
   const { user, loading, signOut } = useAuth()
@@ -27,6 +30,9 @@ export default function PatrolsPage() {
     completionRate: 0
   })
   const [loadingData, setLoadingData] = useState(true)
+  const [showCheckpointModal, setShowCheckpointModal] = useState(false)
+  const [showRouteModal, setShowRouteModal] = useState(false)
+  const [showAssignModal, setShowAssignModal] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -122,22 +128,30 @@ export default function PatrolsPage() {
             <p className="text-gray-600">Monitor and manage patrol activities and routes</p>
           </div>
           <div className="flex space-x-3">
+            <Button 
+              variant="outline"
+              onClick={() => setShowCheckpointModal(true)}
+            >
+              <MapPin className="h-4 w-4 mr-2" />
+              Create Checkpoint
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setShowRouteModal(true)}
+            >
+              <Route className="h-4 w-4 mr-2" />
+              Create Route
+            </Button>
+            <Button 
+              onClick={() => setShowAssignModal(true)}
+            >
+              <UserCheck className="h-4 w-4 mr-2" />
+              Assign Route
+            </Button>
             <Link href="/dashboard/patrols/live">
               <Button variant="outline">
                 <Activity className="h-4 w-4 mr-2" />
                 Live Tracking
-              </Button>
-            </Link>
-            <Link href="/dashboard/patrols/routes">
-              <Button variant="outline">
-                <Route className="h-4 w-4 mr-2" />
-                Manage Routes
-              </Button>
-            </Link>
-            <Link href="/dashboard/patrols/assign">
-              <Button>
-                <UserCheck className="h-4 w-4 mr-2" />
-                Assign Patrol
               </Button>
             </Link>
           </div>
@@ -374,10 +388,19 @@ export default function PatrolsPage() {
                     <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No Routes Configured</h3>
                     <p className="text-gray-600">No patrol routes have been set up yet.</p>
-                    <Button className="mt-4">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create First Route
-                    </Button>
+                    <div className="flex gap-3 justify-center mt-4">
+                      <Button 
+                        variant="outline"
+                        onClick={() => setShowCheckpointModal(true)}
+                      >
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Create Checkpoints
+                      </Button>
+                      <Button onClick={() => setShowRouteModal(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Route
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -417,6 +440,28 @@ export default function PatrolsPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modals */}
+      <CreateCheckpointModal
+        isOpen={showCheckpointModal}
+        onClose={() => setShowCheckpointModal(false)}
+        onCheckpointCreated={loadPatrolData}
+        organizationId={user.organization_id}
+      />
+      
+      <CreateRouteModal
+        isOpen={showRouteModal}
+        onClose={() => setShowRouteModal(false)}
+        onRouteCreated={loadPatrolData}
+        organizationId={user.organization_id}
+      />
+      
+      <AssignRouteModal
+        isOpen={showAssignModal}
+        onClose={() => setShowAssignModal(false)}
+        onRouteAssigned={loadPatrolData}
+        organizationId={user.organization_id}
+      />
     </AdminLayout>
   )
 }
