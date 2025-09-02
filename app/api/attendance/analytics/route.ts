@@ -1,27 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedUser, createApiClient, unauthorizedResponse } from '@/lib/supabase/api'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { AttendanceAnalyticsServerService } from '@/lib/services/attendance-analytics-server'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createApiClient()
+    const cookieStore = await cookies()
     
-    // Get session first
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) {
-      return unauthorizedResponse()
+    // Create server client for authentication
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              )
+            } catch {
+              // Ignore errors in server components
+            }
+          },
+        },
+      }
+    )
+
+    // Check authentication
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    console.log('[Analytics API] Auth check:', { hasUser: !!user, userError, userId: user?.id })
+    
+    if (userError || !user) {
+      console.log('[Analytics API] Authentication failed:', userError)
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized - please log in' },
+        { status: 401 }
+      )
     }
 
-    // Get user profile to get organization_id
-    const { data: userProfile } = await supabase
+    // Get user profile using admin client to ensure we can access the data
+    const supabaseAdmin = getSupabaseAdmin()
+    const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('users')
       .select('organization_id')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
-    if (!userProfile?.organization_id) {
+    console.log('[Analytics API] Profile check:', { hasProfile: !!userProfile, profileError, organizationId: userProfile?.organization_id })
+
+    if (profileError || !userProfile?.organization_id) {
+      console.log('[Analytics API] Profile not found:', profileError)
       return NextResponse.json(
-        { success: false, error: 'No organization found' },
+        { success: false, error: 'No organization found for user' },
         { status: 404 }
       )
     }
@@ -43,7 +77,7 @@ export async function GET(request: NextRequest) {
     const end = endDate ? new Date(endDate) : new Date()
     
     console.log('Analytics API called:', {
-      userId: session.user.id,
+      userId: user.id,
       organizationId: userProfile.organization_id,
       analyticsType,
       startDate: startDate ? start.toISOString() : 'N/A',

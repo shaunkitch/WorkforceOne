@@ -1,5 +1,5 @@
 // Server-side Attendance Analytics Service
-import { createApiClient } from '@/lib/supabase/api'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { AttendanceMetrics, GuardPerformance, AttendanceTrend } from './attendance-analytics'
 
 export class AttendanceAnalyticsServerService {
@@ -18,7 +18,7 @@ export class AttendanceAnalyticsServerService {
         endDate: endDate.toISOString()
       })
 
-      const supabase = await createApiClient()
+      const supabase = getSupabaseAdmin()
       
       // First, test basic table access
       const { data: testData, error: testError } = await supabase
@@ -79,7 +79,7 @@ export class AttendanceAnalyticsServerService {
         limit
       })
 
-      const supabase = await createApiClient()
+      const supabase = getSupabaseAdmin()
       
       const { data: records, error } = await supabase
         .from('shift_attendance')
@@ -127,7 +127,7 @@ export class AttendanceAnalyticsServerService {
       const startDate = new Date()
       startDate.setDate(startDate.getDate() - days)
 
-      const supabase = await createApiClient()
+      const supabase = getSupabaseAdmin()
       
       const { data: records, error } = await supabase
         .from('shift_attendance')
@@ -175,7 +175,7 @@ export class AttendanceAnalyticsServerService {
     try {
       console.log('Server getLiveAttendanceStatus called with:', { organizationId })
 
-      const supabase = await createApiClient()
+      const supabase = getSupabaseAdmin()
       
       const today = new Date()
       today.setHours(0, 0, 0, 0)
