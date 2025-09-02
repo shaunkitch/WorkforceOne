@@ -1,20 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextRequest, NextResponse } from 'next/server'
-
-// Create Supabase client with service role key to bypass RLS
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-})
 
 // GET - Fetch checkpoints for an organization
 export async function GET(request: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const { searchParams } = new URL(request.url)
     const organizationId = searchParams.get('organization_id')
     const activeOnly = searchParams.get('active_only') === 'true'
@@ -26,7 +16,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('locations')
       .select('*')
       .eq('organization_id', organizationId)
@@ -59,6 +49,7 @@ export async function GET(request: NextRequest) {
 
 // POST - Create a new checkpoint
 export async function POST(request: NextRequest) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const body = await request.json()
     const {
@@ -152,6 +143,7 @@ export async function POST(request: NextRequest) {
 
 // PUT - Update an existing checkpoint
 export async function PUT(request: NextRequest) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const body = await request.json()
     const {
@@ -245,6 +237,7 @@ export async function PUT(request: NextRequest) {
 
 // DELETE - Delete a checkpoint
 export async function DELETE(request: NextRequest) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')

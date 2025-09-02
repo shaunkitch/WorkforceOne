@@ -1,25 +1,15 @@
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextResponse } from 'next/server'
 
-// Create Supabase client with service role key to bypass RLS
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-})
-
 export async function GET() {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     console.log('Testing getActiveUsersPositions direct implementation...')
     
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
     console.log('Looking for GPS data after:', thirtyMinutesAgo)
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('gps_tracking')
       .select(`
         user_id,

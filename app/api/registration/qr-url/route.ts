@@ -1,9 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextRequest, NextResponse } from 'next/server'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
 // Get the base URL for the current environment
 function getBaseUrl(request: NextRequest): string {
@@ -22,6 +19,7 @@ function getBaseUrl(request: NextRequest): string {
 }
 
 export async function GET(request: NextRequest) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const { searchParams } = new URL(request.url)
     const token = searchParams.get('token')

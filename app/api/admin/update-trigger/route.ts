@@ -1,12 +1,9 @@
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextResponse } from 'next/server'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function POST() {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     console.log('Updating handle_new_user trigger function...')
     
     const updateTriggerSQL = `

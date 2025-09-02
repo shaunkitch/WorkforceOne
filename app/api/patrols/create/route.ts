@@ -1,19 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { createApiClient, unauthorizedResponse } from '@/lib/supabase/api'
 
-// Create Supabase client with service role key to bypass RLS
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-})
 
 export async function POST(request: NextRequest) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const body = await request.json()
     const { organization_id, guard_id, route_id, start_time, total_checkpoints, notes, created_by } = body

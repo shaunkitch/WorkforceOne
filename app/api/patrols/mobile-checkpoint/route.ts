@@ -1,16 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-// Create Supabase client with service role key to bypass RLS
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-})
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 // OPTIONS - Handle CORS preflight requests
 export async function OPTIONS(request: NextRequest) {
@@ -24,6 +13,7 @@ export async function OPTIONS(request: NextRequest) {
 // POST - Record checkpoint visit from mobile app
 export async function POST(request: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const body = await request.json()
     const { 
       patrol_id, 

@@ -1,18 +1,19 @@
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export async function POST(request: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+    
     const { email, password } = await request.json()
     
     console.log('Server-side login attempt for:', email)
-
-    // Create a fresh Supabase instance for this login
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,

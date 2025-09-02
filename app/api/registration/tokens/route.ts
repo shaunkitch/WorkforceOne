@@ -1,11 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextRequest, NextResponse } from 'next/server'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 // Server-side Supabase client with service role (bypasses RLS)
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
 // Generate a 5-character access code
 function generateAccessCode(): string {
@@ -23,6 +20,7 @@ function generateQRToken(): string {
 }
 
 export async function POST(request: NextRequest) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const { organization_id, token_type, role_id, department_id, expires_in_hours, usage_limit, created_by } = await request.json()
 
@@ -97,6 +95,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const { searchParams } = new URL(request.url)
     const organizationId = searchParams.get('organization_id')

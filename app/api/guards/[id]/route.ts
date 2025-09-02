@@ -1,14 +1,12 @@
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextRequest, NextResponse } from 'next/server'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const { id: guardId } = await params
 
@@ -67,6 +65,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const { id: guardId } = await params
     const updates = await request.json()
@@ -143,6 +142,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const { id: guardId } = await params
 
