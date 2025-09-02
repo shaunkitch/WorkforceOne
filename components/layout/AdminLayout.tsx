@@ -24,6 +24,7 @@ import {
   User
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Toaster } from '@/components/ui/toaster'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -256,6 +257,7 @@ export default function AdminLayout({ children, className }: AdminLayoutProps) {
           {children}
         </main>
       </div>
+      <Toaster />
     </div>
   )
 }
