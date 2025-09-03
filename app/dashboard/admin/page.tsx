@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Shield, Users, MapPin, AlertTriangle, TrendingUp, Activity, QrCode, Zap, Clock, UserCheck } from 'lucide-react'
+import BackupRequestAlert from '@/components/admin/BackupRequestAlert'
 
 export default function AdminConsolePage() {
   const { user } = useAuth()
@@ -40,6 +41,9 @@ export default function AdminConsolePage() {
 
   return (
     <AdminLayout>
+      {/* Backup Request Alert - Fixed position overlay */}
+      <BackupRequestAlert />
+      
       <div className="p-6 space-y-8">
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
