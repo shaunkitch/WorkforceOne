@@ -8,6 +8,13 @@ import { Badge } from '@/components/ui/badge'
 import { AlertTriangle, MapPin, Clock, User, Shield, X, CheckCircle } from 'lucide-react'
 import { useAuth } from '@/lib/auth/hooks'
 
+// Extend Window interface for webkit audio context
+declare global {
+  interface Window {
+    webkitAudioContext: typeof AudioContext
+  }
+}
+
 interface BackupRequest {
   id: string
   guard_id: string
@@ -169,12 +176,29 @@ export default function BackupRequestAlert() {
   useEffect(() => {
     const activeRequests = backupRequests.filter(req => req.status === 'active')
     if (activeRequests.length > 0) {
-      // Create audio alert (optional)
+      // Try to play audio alert with fallback to system beep
       try {
         const audio = new Audio('/sounds/alert.mp3')
-        audio.play().catch(() => {
-          // Fallback for browsers that require user interaction
-          console.log('Audio alert blocked by browser policy')
+        audio.play().catch((audioError) => {
+          console.log('Audio alert not available, trying fallback beep')
+          // Fallback: Use Web Audio API for a simple beep
+          try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+            const oscillator = audioContext.createOscillator()
+            const gainNode = audioContext.createGain()
+            
+            oscillator.connect(gainNode)
+            gainNode.connect(audioContext.destination)
+            
+            oscillator.frequency.value = 800 // 800 Hz beep
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
+            
+            oscillator.start()
+            oscillator.stop(audioContext.currentTime + 0.5)
+          } catch (beepError) {
+            console.log('No audio capabilities available')
+          }
         })
       } catch (error) {
         console.log('Audio not available')
