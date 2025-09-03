@@ -24,12 +24,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get active backup requests with guard and location info
+    // Get active and acknowledged backup requests with guard and location info
     const { data: backupRequests, error } = await supabaseAdmin
       .from('backup_requests')
       .select('*')
       .eq('organization_id', organizationId)
-      .eq('status', 'active')
+      .in('status', ['active', 'acknowledged'])
       .order('created_at', { ascending: false })
 
     if (error) {

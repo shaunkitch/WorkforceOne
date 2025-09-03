@@ -102,35 +102,53 @@ export default function BackupRequestAlert() {
   }
 
   const updateRequestStatus = async (requestId: string, status: 'acknowledged' | 'resolved', notes?: string) => {
-    if (!user) return
+    console.log('🚨 [BACKUP ALERT DEBUG] Button clicked:', { requestId, status, notes, user: user ? 'exists' : 'null' })
+    
+    if (!user) {
+      console.log('🚨 [BACKUP ALERT DEBUG] No user found, aborting update')
+      return
+    }
     
     setLoading(true)
     try {
+      const requestData = {
+        id: requestId,
+        status,
+        responded_by: user.id,
+        response_time: new Date().toISOString(),
+        resolution_notes: notes
+      }
+      
+      console.log('🚨 [BACKUP ALERT DEBUG] Sending PUT request:', requestData)
+      
       const response = await fetch('/api/backup-requests', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          id: requestId,
-          status,
-          responded_by: user.id,
-          response_time: new Date().toISOString(),
-          resolution_notes: notes
-        })
+        body: JSON.stringify(requestData)
       })
+      
+      console.log('🚨 [BACKUP ALERT DEBUG] PUT Response status:', response.status)
+      
+      const responseData = await response.json()
+      console.log('🚨 [BACKUP ALERT DEBUG] PUT Response data:', responseData)
 
       if (response.ok) {
+        console.log('🚨 [BACKUP ALERT DEBUG] Update successful, refreshing requests')
         // Refresh the backup requests
         fetchBackupRequests()
         
-        // Play alert sound if needed
         if (status === 'acknowledged') {
           console.log('Backup request acknowledged by admin')
+        } else if (status === 'resolved') {
+          console.log('Backup request resolved by admin')
         }
+      } else {
+        console.error('🚨 [BACKUP ALERT DEBUG] Update failed:', responseData)
       }
     } catch (error) {
-      console.error('Error updating backup request:', error)
+      console.error('🚨 [BACKUP ALERT DEBUG] Error updating backup request:', error)
     } finally {
       setLoading(false)
     }
@@ -164,39 +182,45 @@ export default function BackupRequestAlert() {
     }
   }, [backupRequests])
 
-  const activeRequests = backupRequests.filter(req => req.status === 'active')
+  const urgentRequests = backupRequests.filter(req => req.status === 'active' || req.status === 'acknowledged')
   
   console.log('🚨 [BACKUP ALERT DEBUG] Render check:', {
     total_requests: backupRequests.length,
-    active_requests: activeRequests.length,
+    urgent_requests: urgentRequests.length,
     all_statuses: backupRequests.map(r => r.status)
   })
   
-  if (activeRequests.length === 0) {
-    console.log('🚨 [BACKUP ALERT DEBUG] No active requests, hiding component')
-    return null // Don't show anything if no active requests
+  if (urgentRequests.length === 0) {
+    console.log('🚨 [BACKUP ALERT DEBUG] No urgent requests, hiding component')
+    return null // Don't show anything if no urgent requests
   }
   
-  console.log('🚨 [BACKUP ALERT DEBUG] Showing alerts for:', activeRequests.length, 'requests')
+  console.log('🚨 [BACKUP ALERT DEBUG] Showing alerts for:', urgentRequests.length, 'requests')
 
   return (
     <div className="fixed top-4 right-4 z-50 space-y-4 max-w-md">
-      {activeRequests.map((request) => (
-        <Card key={request.id} className="border-red-500 border-2 bg-red-50 shadow-2xl animate-pulse">
+      {urgentRequests.map((request) => (
+        <Card key={request.id} className={`border-2 shadow-2xl ${
+          request.status === 'active' 
+            ? 'border-red-500 bg-red-50 animate-pulse' 
+            : 'border-yellow-500 bg-yellow-50'
+        }`}>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-6 w-6 text-red-600" />
-                <CardTitle className="text-red-800 text-lg">
-                  🚨 BACKUP REQUESTED
+                <AlertTriangle className={`h-6 w-6 ${request.status === 'active' ? 'text-red-600' : 'text-yellow-600'}`} />
+                <CardTitle className={`text-lg ${request.status === 'active' ? 'text-red-800' : 'text-yellow-800'}`}>
+                  {request.status === 'active' ? '🚨 BACKUP REQUESTED' : '⏳ ACKNOWLEDGED'}
                 </CardTitle>
               </div>
-              <Badge variant="destructive" className="bg-red-600">
-                URGENT
+              <Badge variant={request.status === 'active' ? 'destructive' : 'default'} className={request.status === 'active' ? 'bg-red-600' : 'bg-yellow-600'}>
+                {request.status === 'active' ? 'URGENT' : 'IN PROGRESS'}
               </Badge>
             </div>
-            <CardDescription className="text-red-700">
-              Emergency assistance needed immediately
+            <CardDescription className={request.status === 'active' ? 'text-red-700' : 'text-yellow-700'}>
+              {request.status === 'active' 
+                ? 'Emergency assistance needed immediately' 
+                : 'Backup request has been acknowledged'}
             </CardDescription>
           </CardHeader>
           
@@ -255,21 +279,23 @@ export default function BackupRequestAlert() {
 
             {/* Action Buttons */}
             <div className="flex gap-2 pt-2">
-              <Button
-                onClick={() => updateRequestStatus(request.id, 'acknowledged')}
-                disabled={loading}
-                className="flex-1 bg-yellow-600 hover:bg-yellow-700"
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Acknowledge
-              </Button>
+              {request.status === 'active' && (
+                <Button
+                  onClick={() => updateRequestStatus(request.id, 'acknowledged')}
+                  disabled={loading}
+                  className="flex-1 bg-yellow-600 hover:bg-yellow-700"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Acknowledge
+                </Button>
+              )}
               <Button
                 onClick={() => updateRequestStatus(request.id, 'resolved', 'Backup dispatched successfully')}
                 disabled={loading}
-                className="flex-1 bg-green-600 hover:bg-green-700"
+                className={`${request.status === 'active' ? 'flex-1' : 'w-full'} bg-green-600 hover:bg-green-700`}
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
-                Resolve
+                {request.status === 'active' ? 'Resolve' : 'Mark Complete'}
               </Button>
             </div>
 
