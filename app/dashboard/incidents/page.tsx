@@ -252,6 +252,17 @@ export default function IncidentsPage() {
         <div class="section">
           <h3>Evidence Photos</h3>
           <div class="field"><div class="field-label">Photos Attached:</div><div>${typeof report.photos === 'string' ? JSON.parse(report.photos).length : (report.photos?.length || 0)} photo(s)</div></div>
+          ${(() => {
+            const photos = typeof report.photos === 'string' ? JSON.parse(report.photos) : report.photos;
+            if (photos && photos.length > 0) {
+              return '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px;">' +
+                photos.map((photo: any, index: number) => 
+                  photo.url ? `<img src="${photo.url}" alt="Photo ${index + 1}" style="width: 100%; height: 150px; object-fit: cover; border: 1px solid #ddd; border-radius: 4px;" />` : ''
+                ).join('') +
+                '</div>';
+            }
+            return '';
+          })()}
         </div>
         ` : ''}
 
@@ -565,19 +576,23 @@ export default function IncidentsPage() {
                             </h4>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                               {photos.map((photo: any, index: number) => (
-                          <div key={index} className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-                            {photo.uri ? (
+                          <div key={index} className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                            {(photo.url || photo.uri) ? (
                               <img 
-                                src={photo.uri} 
+                                src={photo.url || photo.uri} 
                                 alt={`Incident photo ${index + 1}`}
-                                className="w-full h-full object-cover rounded-lg"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  target.nextElementSibling?.classList.remove('hidden');
+                                }}
                               />
-                            ) : (
-                              <div className="text-gray-400 text-center">
-                                <Camera className="h-8 w-8 mx-auto mb-2" />
-                                <span className="text-sm">Photo {index + 1}</span>
-                              </div>
-                            )}
+                            ) : null}
+                            <div className={`text-gray-400 text-center ${(photo.url || photo.uri) ? 'hidden' : ''}`}>
+                              <Camera className="h-8 w-8 mx-auto mb-2" />
+                              <span className="text-sm">Photo {index + 1}</span>
+                            </div>
                           </div>
                               ))}
                             </div>
