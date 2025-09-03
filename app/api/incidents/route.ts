@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
           id,
           first_name,
           last_name,
-          employee_id
+          email
         ),
         patrols (
           id,
