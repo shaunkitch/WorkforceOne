@@ -503,9 +503,9 @@ export default function IncidentsPage() {
                       <User className="h-4 w-4 text-gray-600" />
                       <div>
                         <div className="font-semibold text-gray-900">
-                          {selectedReport.guard.first_name} {selectedReport.guard.last_name}
+                          {selectedReport.users?.first_name} {selectedReport.users?.last_name}
                         </div>
-                        <div className="text-sm text-gray-600">{selectedReport.guard.email}</div>
+                        <div className="text-sm text-gray-600">{selectedReport.users?.email}</div>
                       </div>
                     </div>
                     
@@ -530,12 +530,6 @@ export default function IncidentsPage() {
                         Location
                       </h4>
                       <div className="space-y-2 text-sm">
-                        {selectedReport.location && (
-                          <div>
-                            <span className="font-medium">Nearest Checkpoint:</span> {selectedReport.location.name}
-                            {selectedReport.location.address && <div className="text-gray-600">{selectedReport.location.address}</div>}
-                          </div>
-                        )}
                         {selectedReport.location_address && (
                           <div>
                             <span className="font-medium">Address:</span> {selectedReport.location_address}
