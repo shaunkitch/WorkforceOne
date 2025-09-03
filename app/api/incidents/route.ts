@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-// import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 // OPTIONS - Handle CORS preflight requests
 export async function OPTIONS(request: NextRequest) {
@@ -23,16 +22,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // TODO: Once database table is created, implement actual data fetching
-    // For now, return empty array
-    console.log('[Incident Report GET] Temporary empty response (DB table not created yet)')
+    // TODO: Once database table is created, fetch actual data
+    console.log('[Incidents API] GET request - DB table pending')
     
     return NextResponse.json({ 
       incidentReports: [],
-      message: 'Database table needs to be created for full functionality.' 
+      message: 'Database migration pending. Run supabase_incident_reports_migration.sql' 
     })
   } catch (error) {
-    console.error('Error in GET /api/incident-reports:', error)
+    console.error('Error in GET /api/incidents:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -59,16 +57,15 @@ export async function POST(request: NextRequest) {
       patrol_id
     } = body
 
-    console.log('[Incident Report] Full request details:', {
-      body: JSON.stringify(body),
+    console.log('[Incidents API] POST request received:', {
       guard_id,
       organization_id,
       incident_type,
-      title: title?.substring(0, 50) + '...',
-      severity,
-      photos_count: photos?.length
+      title: title?.substring(0, 50),
+      has_location: !!(location_latitude && location_longitude)
     })
 
+    // Validate required fields
     if (!guard_id || !organization_id || !incident_type || !title || !description) {
       return NextResponse.json(
         { error: 'Missing required fields: guard_id, organization_id, incident_type, title, description' },
@@ -76,11 +73,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: Once database table is created, implement the full functionality
-    // For now, just return success to allow mobile app testing
-    
+    // Create mock response until DB table exists
     const mockIncidentReport = {
-      id: `temp-${Date.now()}`,
+      id: `mock-${Date.now()}`,
       guard_id,
       organization_id,
       incident_type,
@@ -93,18 +88,26 @@ export async function POST(request: NextRequest) {
       location_longitude,
       location_address,
       photos,
-      created_at: new Date().toISOString()
+      patrol_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }
 
-    console.log('[Incident Report] Temporary success (DB table not created yet):', mockIncidentReport.id)
-    return NextResponse.json({ 
+    console.log('[Incidents API] Mock incident created:', mockIncidentReport.id)
+    
+    const response = NextResponse.json({ 
       success: true, 
       incidentReport: mockIncidentReport,
-      message: 'Incident report received successfully. Database table needs to be created for full functionality.'
-    }, { status: 201 })
+      message: 'Incident received. Database migration pending for persistence.'
+    })
+
+    // Set CORS headers
+    response.headers.set('Access-Control-Allow-Origin', '*')
+    
+    return response
 
   } catch (error: any) {
-    console.error('Error in POST /api/incident-reports:', error)
+    console.error('Error in POST /api/incidents:', error)
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
@@ -112,7 +115,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT - Update incident report status (for admin use)
+// PUT - Update incident report status
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
@@ -125,36 +128,18 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // TODO: Once database table is created, implement actual update
-    // For now, just return success
-    console.log('[Incident Report PUT] Temporary success (DB table not created yet)')
+    console.log('[Incidents API] PUT request - DB table pending')
     
     return NextResponse.json({ 
       success: true, 
-      message: 'Database table needs to be created for full functionality.'
+      message: 'Update received. Database migration pending for persistence.'
     })
 
   } catch (error: any) {
-    console.error('Error in PUT /api/incident-reports:', error)
+    console.error('Error in PUT /api/incidents:', error)
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
     )
   }
-}
-
-// Helper function to calculate distance between two coordinates (in meters)
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371e3 // Earth's radius in meters
-  const φ1 = lat1 * Math.PI / 180
-  const φ2 = lat2 * Math.PI / 180
-  const Δφ = (lat2 - lat1) * Math.PI / 180
-  const Δλ = (lon2 - lon1) * Math.PI / 180
-
-  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ/2) * Math.sin(Δλ/2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-
-  return R * c // Distance in meters
 }

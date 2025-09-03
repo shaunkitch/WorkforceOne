@@ -80,7 +80,7 @@ export default function IncidentsPage() {
     if (!user?.organization_id) return
 
     try {
-      const url = `/api/incident-report?organization_id=${user.organization_id}&status=${statusFilter === 'all' ? '' : statusFilter}`
+      const url = `/api/incidents?organization_id=${user.organization_id}&status=${statusFilter === 'all' ? '' : statusFilter}`
       const response = await fetch(url)
 
       if (response.ok) {
@@ -157,7 +157,7 @@ export default function IncidentsPage() {
 
     setUpdating(true)
     try {
-      const response = await fetch('/api/incident-report', {
+      const response = await fetch('/api/incidents', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
