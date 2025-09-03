@@ -456,10 +456,10 @@ export default function IncidentsPage() {
                       <Clock className="h-4 w-4" />
                       <span>{new Date(report.incident_date).toLocaleString()}</span>
                     </div>
-                    {report.location && (
+                    {report.location_address && (
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4" />
-                        <span>{report.location.name}</span>
+                        <span>{report.location_address}</span>
                       </div>
                     )}
                   </div>
@@ -566,6 +566,8 @@ export default function IncidentsPage() {
                         const photos = typeof selectedReport.photos === 'string' 
                           ? JSON.parse(selectedReport.photos) 
                           : selectedReport.photos;
+                        
+                        console.log('Debug - Photos data:', photos);
                         if (!photos || photos.length === 0) return null;
                         
                         return (
@@ -575,26 +577,38 @@ export default function IncidentsPage() {
                               Photos ({photos.length})
                             </h4>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                              {photos.map((photo: any, index: number) => (
-                          <div key={index} className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                            {(photo.url || photo.uri) ? (
+                              {photos.map((photo: any, index: number) => {
+                                console.log(`Debug - Photo ${index}:`, photo);
+                                const imageUrl = photo.url || photo.uri;
+                                console.log(`Debug - Image URL for photo ${index}:`, imageUrl);
+                                
+                                return (
+                          <div key={index} className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden relative">
+                            {imageUrl ? (
                               <img 
-                                src={photo.url || photo.uri} 
+                                src={imageUrl} 
                                 alt={`Incident photo ${index + 1}`}
                                 className="w-full h-full object-cover"
+                                onLoad={() => console.log(`Photo ${index} loaded successfully`)}
                                 onError={(e) => {
+                                  console.error(`Photo ${index} failed to load:`, imageUrl);
                                   const target = e.target as HTMLImageElement;
                                   target.style.display = 'none';
-                                  target.nextElementSibling?.classList.remove('hidden');
+                                  const sibling = target.nextElementSibling as HTMLElement;
+                                  if (sibling) sibling.classList.remove('hidden');
                                 }}
                               />
                             ) : null}
-                            <div className={`text-gray-400 text-center ${(photo.url || photo.uri) ? 'hidden' : ''}`}>
-                              <Camera className="h-8 w-8 mx-auto mb-2" />
-                              <span className="text-sm">Photo {index + 1}</span>
+                            <div className={`absolute inset-0 flex items-center justify-center text-gray-400 text-center ${imageUrl ? 'hidden' : ''}`}>
+                              <div>
+                                <Camera className="h-8 w-8 mx-auto mb-2" />
+                                <span className="text-sm">Photo {index + 1}</span>
+                                {!imageUrl && <div className="text-xs mt-1">No URL</div>}
+                              </div>
                             </div>
                           </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </>
                         );
