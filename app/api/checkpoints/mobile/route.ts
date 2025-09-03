@@ -127,74 +127,84 @@ export async function POST(request: NextRequest) {
       // Record checkpoint visit
       console.log('[Mobile Checkpoint API] Recording checkpoint visit...');
       
-      // First validate the checkpoint exists
-      const { data: checkpoint, error: checkpointError } = await supabaseAdmin
-        .from('locations')
-        .select('*')
-        .eq('location_type', 'checkpoint')
-        .eq('organization_id', organization_id)
-        .eq('metadata->>qr_code', qr_code)
-        .maybeSingle()
+      try {
+        // First validate the checkpoint exists
+        console.log('[Mobile Checkpoint API] Step 1: Validating checkpoint...');
+        const { data: checkpoint, error: checkpointError } = await supabaseAdmin
+          .from('locations')
+          .select('*')
+          .eq('location_type', 'checkpoint')
+          .eq('organization_id', organization_id)
+          .eq('metadata->>qr_code', qr_code)
+          .maybeSingle()
 
-      if (checkpointError || !checkpoint) {
-        console.log('[Mobile Checkpoint API] Checkpoint validation failed:', checkpointError);
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid checkpoint'
-        })
-      }
-
-      // Record the visit
-      const { error: visitError } = await supabaseAdmin
-        .from('checkpoint_visits')
-        .insert({
-          patrol_id,
-          location_id: checkpoint.id,
-          guard_id,
-          visited_at: new Date().toISOString(),
-          verification_method: 'qr',
-          verification_data: qr_code,
-          latitude,
-          longitude
-        })
-
-      if (visitError) {
-        console.error('[Mobile Checkpoint API] Error recording visit:', visitError);
-        return NextResponse.json({
-          success: false,
-          error: 'Failed to record checkpoint visit'
-        })
-      }
-
-      // Update patrol checkpoints completed - first get current count
-      const { data: currentPatrol } = await supabaseAdmin
-        .from('patrols')
-        .select('checkpoints_completed')
-        .eq('id', patrol_id)
-        .single()
-      
-      const newCount = (currentPatrol?.checkpoints_completed || 0) + 1
-      
-      const { error: patrolError } = await supabaseAdmin
-        .from('patrols')
-        .update({ 
-          checkpoints_completed: newCount
-        })
-        .eq('id', patrol_id)
-
-      if (patrolError) {
-        console.error('[Mobile Checkpoint API] Error updating patrol:', patrolError);
-      }
-
-      console.log('[Mobile Checkpoint API] Checkpoint visit recorded successfully - patrol updated to', newCount);
-      return NextResponse.json({
-        success: true,
-        checkpoint: {
-          id: checkpoint.id,
-          name: checkpoint.name,
-          address: checkpoint.address
+        if (checkpointError || !checkpoint) {
+          console.log('[Mobile Checkpoint API] Checkpoint validation failed:', checkpointError);
+          return NextResponse.json({
+            success: false,
+            error: 'Invalid checkpoint'
+          })
         }
-      })
+
+        console.log('[Mobile Checkpoint API] Step 2: Recording visit...');
+        // Record the visit
+        const { error: visitError } = await supabaseAdmin
+          .from('checkpoint_visits')
+          .insert({
+            patrol_id,
+            location_id: checkpoint.id,
+            guard_id,
+            visited_at: new Date().toISOString(),
+            verification_method: 'qr',
+            verification_data: qr_code,
+            latitude,
+            longitude
+          })
+
+        if (visitError) {
+          console.error('[Mobile Checkpoint API] Error recording visit:', visitError);
+          return NextResponse.json({
+            success: false,
+            error: 'Failed to record checkpoint visit'
+          })
+        }
+
+        console.log('[Mobile Checkpoint API] Step 3: Getting current patrol count...');
+        // Update patrol checkpoints completed - first get current count
+        const { data: currentPatrol } = await supabaseAdmin
+          .from('patrols')
+          .select('checkpoints_completed')
+          .eq('id', patrol_id)
+          .single()
+        
+        console.log('[Mobile Checkpoint API] Step 4: Calculating new count...');
+        const newCount = (currentPatrol?.checkpoints_completed || 0) + 1
+        
+        console.log('[Mobile Checkpoint API] Step 5: Updating patrol...');
+        const { error: patrolError } = await supabaseAdmin
+          .from('patrols')
+          .update({ 
+            checkpoints_completed: newCount
+          })
+          .eq('id', patrol_id)
+
+        if (patrolError) {
+          console.error('[Mobile Checkpoint API] Error updating patrol:', patrolError);
+        }
+
+        console.log('[Mobile Checkpoint API] Checkpoint visit recorded successfully - patrol updated to', newCount);
+        return NextResponse.json({
+          success: true,
+          checkpoint: {
+            id: checkpoint.id,
+            name: checkpoint.name,
+            address: checkpoint.address
+          }
+        })
+      } catch (visitActionError) {
+        console.error('[Mobile Checkpoint API] Error in visit action:', visitActionError);
+        throw visitActionError; // Re-throw to be caught by main catch block
+      }
     }
 
     return NextResponse.json(
