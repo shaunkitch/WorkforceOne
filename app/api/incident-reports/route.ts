@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
       success: true, 
       incidentReport,
       closestCheckpoint
-    })
+    }, { status: 201 })
 
   } catch (error: any) {
     console.error('Error in POST /api/incident-reports:', error)
