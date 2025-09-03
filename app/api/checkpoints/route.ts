@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextRequest, NextResponse } from 'next/server'
+import { v4 as uuidv4 } from 'uuid'
 
 // GET - Fetch checkpoints for an organization
 export async function GET(request: NextRequest) {
@@ -77,17 +78,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Prepare metadata
+    // Generate QR code if not provided (permanent, non-expiring)
+    const generatedQrCode = qr_code || `CP-${organization_id.slice(0, 8)}-${uuidv4().slice(0, 8)}`.toUpperCase()
+
+    // Prepare metadata (checkpoint QR codes never expire)
     const metadata = {
-      qr_code,
+      qr_code: generatedQrCode,
       nfc_tag_id: nfc_tag,
       special_instructions: visit_instructions,
       verification_methods: verification_methods || ['qr'],
-      expected_visit_duration: 5 // default 5 minutes
+      expected_visit_duration: 5, // default 5 minutes
+      // Note: No expires_at field - checkpoint QR codes are permanent
+      created_at: new Date().toISOString()
     }
 
     // Insert checkpoint into locations table
-    const { data: checkpoint, error } = await supabase
+    const { data: checkpoint, error } = await supabaseAdmin
       .from('locations')
       .insert([{
         organization_id,
@@ -112,7 +118,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log the activity
-    await supabase
+    await supabaseAdmin
       .from('activity_logs')
       .insert({
         organization_id,
@@ -180,7 +186,7 @@ export async function PUT(request: NextRequest) {
       expected_visit_duration: 5
     }
 
-    const { data: checkpoint, error } = await supabase
+    const { data: checkpoint, error } = await supabaseAdmin
       .from('locations')
       .update({
         name,
@@ -206,7 +212,7 @@ export async function PUT(request: NextRequest) {
 
     // Log the activity
     if (updated_by) {
-      await supabase
+      await supabaseAdmin
         .from('activity_logs')
         .insert({
           organization_id,
@@ -252,14 +258,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     // First get the checkpoint details for logging
-    const { data: existingCheckpoint } = await supabase
+    const { data: existingCheckpoint } = await supabaseAdmin
       .from('locations')
       .select('name, location_type')
       .eq('id', id)
       .eq('organization_id', organizationId)
       .single()
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('locations')
       .delete()
       .eq('id', id)
@@ -275,7 +281,7 @@ export async function DELETE(request: NextRequest) {
 
     // Log the activity
     if (deletedBy && existingCheckpoint) {
-      await supabase
+      await supabaseAdmin
         .from('activity_logs')
         .insert({
           organization_id: organizationId,

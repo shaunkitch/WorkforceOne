@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Route, MapPin, Loader2, Plus, X } from 'lucide-react'
+import { Route, MapPin, Loader2, Plus, X, Edit } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 
@@ -20,21 +20,31 @@ interface Location {
   address?: string
 }
 
-interface CreateRouteModalProps {
+interface PatrolRoute {
+  id: string
+  name: string
+  description?: string
+  checkpoints: string[]
+  estimated_duration?: number
+}
+
+interface EditRouteModalProps {
   isOpen: boolean
   onClose: () => void
-  onRouteCreated: () => void
+  onRouteUpdated: () => void
   organizationId: string
+  route: PatrolRoute | null
   refreshTrigger?: number
 }
 
-export default function CreateRouteModal({
+export default function EditRouteModal({
   isOpen,
   onClose,
-  onRouteCreated,
+  onRouteUpdated,
   organizationId,
+  route,
   refreshTrigger
-}: CreateRouteModalProps) {
+}: EditRouteModalProps) {
   const [loading, setLoading] = useState(false)
   const [loadingLocations, setLoadingLocations] = useState(false)
   const [locations, setLocations] = useState<Location[]>([])
@@ -59,6 +69,19 @@ export default function CreateRouteModal({
       loadLocations()
     }
   }, [refreshTrigger, isOpen])
+
+  // Populate form when route is selected
+  useEffect(() => {
+    if (route && isOpen) {
+      setFormData({
+        name: route.name || '',
+        description: route.description || '',
+        estimated_duration: route.estimated_duration?.toString() || '',
+        instructions: ''
+      })
+      setSelectedCheckpoints(route.checkpoints || [])
+    }
+  }, [route, isOpen])
 
   const loadLocations = async () => {
     setLoadingLocations(true)
@@ -102,6 +125,16 @@ export default function CreateRouteModal({
       return
     }
 
+    if (!route) {
+      toast({
+        title: "Error",
+        description: "No route selected for editing",
+        variant: "destructive"
+      })
+      setLoading(false)
+      return
+    }
+
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
@@ -110,30 +143,31 @@ export default function CreateRouteModal({
       }
 
       const response = await fetch('/api/patrols/routes', {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          id: route.id,
           name: formData.name,
           description: formData.description,
           organization_id: organizationId,
           checkpoints: selectedCheckpoints,
           estimated_duration: formData.estimated_duration ? parseInt(formData.estimated_duration) : null,
-          created_by: user.id,
+          updated_by: user.id,
           is_active: true
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        console.error('Route creation failed:', { status: response.status, error: errorData })
-        throw new Error(errorData.error || 'Failed to create route')
+        console.error('Route update failed:', { status: response.status, error: errorData })
+        throw new Error(errorData.error || 'Failed to update route')
       }
 
       toast({
         title: "Success",
-        description: "Patrol route created successfully",
+        description: "Patrol route updated successfully",
       })
 
       // Reset form
@@ -145,13 +179,13 @@ export default function CreateRouteModal({
       })
       setSelectedCheckpoints([])
 
-      onRouteCreated()
+      onRouteUpdated()
       onClose()
     } catch (error) {
-      console.error('Error creating route:', error)
+      console.error('Error updating route:', error)
       toast({
         title: "Error",
-        description: "Failed to create route. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to update route. Please try again.",
         variant: "destructive"
       })
     } finally {
@@ -163,146 +197,141 @@ export default function CreateRouteModal({
     setSelectedCheckpoints(prev => prev.filter(id => id !== checkpointId))
   }
 
+  const selectedLocationNames = selectedCheckpoints
+    .map(id => locations.find(loc => loc.id === id)?.name)
+    .filter(Boolean)
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Route className="h-5 w-5" />
-            Create New Patrol Route
+            <Edit className="h-5 w-5" />
+            Edit Patrol Route
           </DialogTitle>
           <DialogDescription>
-            Create a new patrol route by selecting checkpoints and configuring the route details.
+            Update the route details and checkpoint assignments.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Route Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Building Perimeter"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="estimated_duration">Estimated Duration (minutes)</Label>
-                <Input
-                  id="estimated_duration"
-                  type="number"
-                  value={formData.estimated_duration}
-                  onChange={(e) => setFormData({ ...formData, estimated_duration: e.target.value })}
-                  placeholder="e.g., 30"
-                />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Route Name *</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Night Security Round"
+                required
+              />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Brief description of the patrol route"
-                rows={3}
+              <Label htmlFor="edit-duration">Estimated Duration (minutes)</Label>
+              <Input
+                id="edit-duration"
+                type="number"
+                value={formData.estimated_duration}
+                onChange={(e) => setFormData({ ...formData, estimated_duration: e.target.value })}
+                placeholder="e.g., 45"
+                min="1"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-description">Description</Label>
+            <Textarea
+              id="edit-description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Brief description of the patrol route"
+              rows={3}
+            />
           </div>
 
           {/* Selected Checkpoints */}
           {selectedCheckpoints.length > 0 && (
             <div className="space-y-2">
               <Label>Selected Checkpoints ({selectedCheckpoints.length})</Label>
-              <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-md">
-                {selectedCheckpoints.map(checkpointId => {
-                  const checkpoint = locations.find(l => l.id === checkpointId)
-                  return checkpoint ? (
-                    <Badge key={checkpointId} variant="secondary" className="flex items-center gap-1">
-                      {checkpoint.name}
-                      <X
-                        className="h-3 w-3 cursor-pointer hover:text-red-500"
-                        onClick={() => removeCheckpoint(checkpointId)}
-                      />
-                    </Badge>
-                  ) : null
-                })}
+              <div className="flex flex-wrap gap-2">
+                {selectedLocationNames.map((name, index) => (
+                  <Badge
+                    key={selectedCheckpoints[index]}
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                  >
+                    <MapPin className="h-3 w-3" />
+                    {name}
+                    <button
+                      type="button"
+                      onClick={() => removeCheckpoint(selectedCheckpoints[index])}
+                      className="ml-1 hover:text-red-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Checkpoint Selection */}
+          {/* Available Checkpoints */}
           <div className="space-y-2">
-            <Label>Select Checkpoints</Label>
-            <ScrollArea className="h-64 border rounded-md p-3">
-              {loadingLocations ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  <span className="ml-2">Loading checkpoints...</span>
-                </div>
-              ) : locations.length === 0 ? (
-                <div className="text-center py-8">
-                  <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Checkpoints Found</h3>
-                  <p className="text-gray-600 mb-4">Create some checkpoints first to build patrol routes.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
+            <Label>Available Checkpoints</Label>
+            {loadingLocations ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                Loading checkpoints...
+              </div>
+            ) : locations.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">
+                <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No checkpoints available</p>
+                <p className="text-sm">Create some checkpoints first</p>
+              </div>
+            ) : (
+              <ScrollArea className="h-48 border rounded-md p-2">
+                <div className="space-y-2">
                   {locations.map((location) => (
                     <div
                       key={location.id}
-                      className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50"
+                      className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded"
                     >
                       <Checkbox
-                        id={`location-${location.id}`}
+                        id={`edit-checkpoint-${location.id}`}
                         checked={selectedCheckpoints.includes(location.id)}
                         onCheckedChange={() => handleCheckpointToggle(location.id)}
                       />
-                      <div className="flex-1 min-w-0">
-                        <label
-                          htmlFor={`location-${location.id}`}
-                          className="block text-sm font-medium text-gray-900 cursor-pointer"
-                        >
-                          {location.name}
-                        </label>
-                        {location.description && (
-                          <p className="text-sm text-gray-600 mt-1">{location.description}</p>
-                        )}
-                        {location.address && (
-                          <p className="text-xs text-gray-500 mt-1">{location.address}</p>
-                        )}
-                      </div>
+                      <label
+                        htmlFor={`edit-checkpoint-${location.id}`}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <div className="flex items-center">
+                          <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+                          <div>
+                            <div className="font-medium">{location.name}</div>
+                            {location.address && (
+                              <div className="text-sm text-gray-500">{location.address}</div>
+                            )}
+                          </div>
+                        </div>
+                      </label>
                     </div>
                   ))}
                 </div>
-              )}
-            </ScrollArea>
-          </div>
-
-          {/* Instructions */}
-          <div className="space-y-2">
-            <Label htmlFor="instructions">Route Instructions</Label>
-            <Textarea
-              id="instructions"
-              value={formData.instructions}
-              onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
-              placeholder="Special instructions for guards following this route"
-              rows={3}
-            />
+              </ScrollArea>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || selectedCheckpoints.length === 0}>
+            <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Route
+              Update Route
             </Button>
           </div>
         </form>

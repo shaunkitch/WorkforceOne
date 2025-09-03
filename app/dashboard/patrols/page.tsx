@@ -11,10 +11,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Shield, Plus, MapPin, Clock, User, CheckCircle, Circle, Play, Square, Route, UserCheck, Activity } from 'lucide-react'
+import { Shield, Plus, MapPin, Clock, User, CheckCircle, Circle, Play, Square, Route, UserCheck, Activity, Edit, Trash2, Printer } from 'lucide-react'
 import CreateCheckpointModal from '@/components/patrols/CreateCheckpointModal'
 import CreateRouteModal from '@/components/patrols/CreateRouteModal'
 import AssignRouteModal from '@/components/patrols/AssignRouteModal'
+import EditRouteModal from '@/components/patrols/EditRouteModal'
+import RoutesPrintModal from '@/components/patrols/RoutesPrintModal'
 
 export default function PatrolsPage() {
   const { user, loading, signOut } = useAuth()
@@ -33,6 +35,10 @@ export default function PatrolsPage() {
   const [showCheckpointModal, setShowCheckpointModal] = useState(false)
   const [showRouteModal, setShowRouteModal] = useState(false)
   const [showAssignModal, setShowAssignModal] = useState(false)
+  const [showEditRouteModal, setShowEditRouteModal] = useState(false)
+  const [showPrintModal, setShowPrintModal] = useState(false)
+  const [selectedRoute, setSelectedRoute] = useState<PatrolRoute | null>(null)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -88,6 +94,41 @@ export default function PatrolsPage() {
 
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString()
+  }
+
+  const handleEditRoute = (route: PatrolRoute) => {
+    setSelectedRoute(route)
+    setShowEditRouteModal(true)
+  }
+
+  const handlePrintRoute = (route: PatrolRoute) => {
+    setSelectedRoute(route)
+    setShowPrintModal(true)
+  }
+
+  const handleDeleteRoute = async (route: PatrolRoute) => {
+    if (!confirm(`Are you sure you want to delete the route "${route.name}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/patrols/routes?id=${route.id}&organization_id=${user?.organization_id}&deleted_by=${user?.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete route')
+      }
+
+      // Refresh the patrol data to update the routes list
+      await loadPatrolData()
+      
+      // Show success message (you could add a toast here)
+      alert('Route deleted successfully')
+    } catch (error) {
+      console.error('Error deleting route:', error)
+      alert('Failed to delete route. Please try again.')
+    }
   }
 
 
@@ -424,9 +465,33 @@ export default function PatrolsPage() {
                                 ~{route.estimated_duration} minutes
                               </div>
                             )}
-                            <div className="pt-2">
-                              <Button variant="outline" size="sm" className="w-full">
-                                View Route
+                            <div className="pt-2 flex gap-1">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="flex-1"
+                                onClick={() => handleEditRoute(route)}
+                              >
+                                <Edit className="h-3 w-3 mr-1" />
+                                Edit
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                onClick={() => handlePrintRoute(route)}
+                                title="Print Route Details"
+                              >
+                                <Printer className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleDeleteRoute(route)}
+                                title="Delete Route"
+                              >
+                                <Trash2 className="h-3 w-3" />
                               </Button>
                             </div>
                           </div>
@@ -445,7 +510,10 @@ export default function PatrolsPage() {
       <CreateCheckpointModal
         isOpen={showCheckpointModal}
         onClose={() => setShowCheckpointModal(false)}
-        onCheckpointCreated={loadPatrolData}
+        onCheckpointCreated={() => {
+          loadPatrolData()
+          setRefreshTrigger(prev => prev + 1)
+        }}
         organizationId={user.organization_id}
       />
       
@@ -454,12 +522,35 @@ export default function PatrolsPage() {
         onClose={() => setShowRouteModal(false)}
         onRouteCreated={loadPatrolData}
         organizationId={user.organization_id}
+        refreshTrigger={refreshTrigger}
       />
       
       <AssignRouteModal
         isOpen={showAssignModal}
         onClose={() => setShowAssignModal(false)}
         onRouteAssigned={loadPatrolData}
+        organizationId={user.organization_id}
+      />
+      
+      <EditRouteModal
+        isOpen={showEditRouteModal}
+        onClose={() => {
+          setShowEditRouteModal(false)
+          setSelectedRoute(null)
+        }}
+        onRouteUpdated={loadPatrolData}
+        organizationId={user.organization_id}
+        route={selectedRoute}
+        refreshTrigger={refreshTrigger}
+      />
+      
+      <RoutesPrintModal
+        isOpen={showPrintModal}
+        onClose={() => {
+          setShowPrintModal(false)
+          setSelectedRoute(null)
+        }}
+        route={selectedRoute}
         organizationId={user.organization_id}
       />
     </AdminLayout>

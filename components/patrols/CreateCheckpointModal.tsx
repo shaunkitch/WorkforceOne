@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { MapPin, Loader2 } from 'lucide-react'
+import { MapPin, Loader2, QrCode } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/lib/supabase/client'
 
 interface CreateCheckpointModalProps {
   isOpen: boolean
@@ -23,6 +24,7 @@ export default function CreateCheckpointModal({
   organizationId
 }: CreateCheckpointModalProps) {
   const [loading, setLoading] = useState(false)
+  const [createdCheckpoint, setCreatedCheckpoint] = useState<any>(null)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -34,21 +36,45 @@ export default function CreateCheckpointModal({
   })
   const { toast } = useToast()
 
+  const handleClose = () => {
+    setCreatedCheckpoint(null)
+    setFormData({
+      name: '',
+      description: '',
+      address: '',
+      latitude: '',
+      longitude: '',
+      qr_code_data: '',
+      instructions: ''
+    })
+    onClose()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('User not authenticated')
+      }
+
       const response = await fetch('/api/checkpoints', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...formData,
-          organization_id: organizationId,
+          name: formData.name,
+          description: formData.description,
+          address: formData.address,
           latitude: formData.latitude ? parseFloat(formData.latitude) : null,
           longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+          visit_instructions: formData.instructions,
+          organization_id: organizationId,
+          created_by: user.id,
           is_active: true
         }),
       })
@@ -57,24 +83,33 @@ export default function CreateCheckpointModal({
         throw new Error('Failed to create checkpoint')
       }
 
-      toast({
-        title: "Success",
-        description: "Checkpoint created successfully",
-      })
+      const result = await response.json()
+      console.log('Checkpoint creation result:', result)
+      
+      if (result.success && result.checkpoint) {
+        setCreatedCheckpoint(result.checkpoint)
 
-      // Reset form
-      setFormData({
-        name: '',
-        description: '',
-        address: '',
-        latitude: '',
-        longitude: '',
-        qr_code_data: '',
-        instructions: ''
-      })
+        toast({
+          title: "Success",
+          description: "Checkpoint created successfully",
+        })
 
-      onCheckpointCreated()
-      onClose()
+        // Reset form
+        setFormData({
+          name: '',
+          description: '',
+          address: '',
+          latitude: '',
+          longitude: '',
+          qr_code_data: '',
+          instructions: ''
+        })
+
+        // Call the callback to refresh the checkpoint list
+        onCheckpointCreated()
+      } else {
+        throw new Error(result.error || 'Invalid response from server')
+      }
     } catch (error) {
       console.error('Error creating checkpoint:', error)
       toast({
@@ -125,17 +160,67 @@ export default function CreateCheckpointModal({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            Create New Checkpoint
+            {createdCheckpoint ? (
+              <>
+                <QrCode className="h-5 w-5" />
+                Checkpoint Created Successfully
+              </>
+            ) : (
+              <>
+                <MapPin className="h-5 w-5" />
+                Create New Checkpoint
+              </>
+            )}
           </DialogTitle>
           <DialogDescription>
-            Add a new checkpoint location for patrol routes. Fill in the details below.
+            {createdCheckpoint 
+              ? "Your checkpoint has been created with the QR code shown below."
+              : "Add a new checkpoint location for patrol routes. Fill in the details below."
+            }
           </DialogDescription>
         </DialogHeader>
+
+        {createdCheckpoint ? (
+          <div className="space-y-4">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-lg mb-2">{createdCheckpoint.name}</h3>
+              <p className="text-gray-600 mb-4">{createdCheckpoint.metadata?.description || 'No description'}</p>
+              
+              <div className="bg-white p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                <QrCode className="h-16 w-16 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm text-gray-500 mb-2">QR Code:</p>
+                <p className="font-mono text-lg font-semibold break-all">
+                  {createdCheckpoint.metadata?.qr_code || 'QR Code not available'}
+                </p>
+              </div>
+              
+              {createdCheckpoint.address && (
+                <p className="text-sm text-gray-600 mt-2">
+                  <strong>Address:</strong> {createdCheckpoint.address}
+                </p>
+              )}
+              
+              {(createdCheckpoint.latitude && createdCheckpoint.longitude) && (
+                <p className="text-sm text-gray-600">
+                  <strong>Location:</strong> {createdCheckpoint.latitude}, {createdCheckpoint.longitude}
+                </p>
+              )}
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setCreatedCheckpoint(null)}>
+                Create Another
+              </Button>
+              <Button onClick={handleClose}>
+                Close
+              </Button>
+            </div>
+          </div>
+        ) : (
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -241,7 +326,7 @@ export default function CreateCheckpointModal({
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
@@ -250,6 +335,7 @@ export default function CreateCheckpointModal({
             </Button>
           </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   )

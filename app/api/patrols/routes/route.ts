@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       const routesWithLocations = await Promise.all(
         routes.map(async (route: any) => {
           if (route.checkpoints && route.checkpoints.length > 0) {
-            const { data: locations } = await supabase
+            const { data: locations } = await supabaseAdmin
               .from('locations')
               .select('id, name, address, latitude, longitude')
               .in('id', route.checkpoints)
@@ -66,8 +66,11 @@ export async function GET(request: NextRequest) {
 
 // POST - Create a new patrol route
 export async function POST(request: NextRequest) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const body = await request.json()
+    console.log('[Patrol Routes API] POST request body:', body)
+    
     const {
       organization_id,
       name,
@@ -101,22 +104,26 @@ export async function POST(request: NextRequest) {
       checkpoints,
       estimated_duration: estimated_duration || 60,
       is_active,
-      created_at: new Date().toISOString()
-    }
-    
-    // Only add created_by if it's provided
-    if (created_by) {
-      routeData.created_by = created_by
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      ...(created_by && { created_by })
     }
 
-    const { data: route, error: routeError } = await supabase
+    console.log('[Patrol Routes API] Inserting route data:', routeData)
+
+    const { data: route, error: routeError } = await supabaseAdmin
       .from('patrol_routes')
       .insert([routeData])
       .select()
       .single()
 
     if (routeError) {
-      console.error('Error creating patrol route:', routeError)
+      console.error('Error creating patrol route - Detailed error:', {
+        message: routeError.message,
+        details: routeError.details,
+        hint: routeError.hint,
+        code: routeError.code
+      })
       return NextResponse.json(
         { error: 'Failed to create patrol route', details: routeError.message },
         { status: 500 }
@@ -125,7 +132,7 @@ export async function POST(request: NextRequest) {
 
     // Log the activity (only if created_by is provided)
     if (created_by) {
-      await supabase
+      await supabaseAdmin
         .from('activity_logs')
         .insert({
           organization_id,
@@ -146,10 +153,10 @@ export async function POST(request: NextRequest) {
       success: true, 
       route 
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in POST /api/patrols/routes:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     )
   }
@@ -157,6 +164,7 @@ export async function POST(request: NextRequest) {
 
 // PUT - Update an existing patrol route
 export async function PUT(request: NextRequest) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const body = await request.json()
     const {
@@ -177,7 +185,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const { data: route, error } = await supabase
+    const { data: route, error } = await supabaseAdmin
       .from('patrol_routes')
       .update({
         name,
@@ -202,7 +210,7 @@ export async function PUT(request: NextRequest) {
 
     // Log the activity
     if (updated_by) {
-      await supabase
+      await supabaseAdmin
         .from('activity_logs')
         .insert({
           organization_id,
@@ -233,6 +241,7 @@ export async function PUT(request: NextRequest) {
 
 // DELETE - Delete a patrol route
 export async function DELETE(request: NextRequest) {
+  const supabaseAdmin = getSupabaseAdmin()
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -247,14 +256,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     // First get the route details for logging
-    const { data: existingRoute } = await supabase
+    const { data: existingRoute } = await supabaseAdmin
       .from('patrol_routes')
       .select('name')
       .eq('id', id)
       .eq('organization_id', organizationId)
       .single()
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('patrol_routes')
       .delete()
       .eq('id', id)
@@ -270,7 +279,7 @@ export async function DELETE(request: NextRequest) {
 
     // Log the activity
     if (deletedBy && existingRoute) {
-      await supabase
+      await supabaseAdmin
         .from('activity_logs')
         .insert({
           organization_id: organizationId,
