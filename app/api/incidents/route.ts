@@ -25,26 +25,10 @@ export async function GET(request: NextRequest) {
 
     const supabaseAdmin = getSupabaseAdmin()
     
+    // First try a simple query to test if table exists
     const { data: incidents, error } = await supabaseAdmin
       .from('incident_reports')
-      .select(`
-        *,
-        users!guard_id (
-          id,
-          first_name,
-          last_name,
-          email
-        ),
-        patrols (
-          id,
-          start_time,
-          status,
-          patrol_routes (
-            id,
-            name
-          )
-        )
-      `)
+      .select('*')
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false })
 
