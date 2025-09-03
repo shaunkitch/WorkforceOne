@@ -37,8 +37,12 @@ export async function GET(request: NextRequest) {
         ),
         patrols (
           id,
-          route_name,
-          start_time
+          start_time,
+          status,
+          patrol_routes (
+            id,
+            name
+          )
         )
       `)
       .eq('organization_id', organizationId)
