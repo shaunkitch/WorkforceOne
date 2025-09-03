@@ -41,13 +41,29 @@ export default function BackupRequestAlert() {
   const [loading, setLoading] = useState(false)
 
   const fetchBackupRequests = async () => {
-    if (!user?.organization_id) return
+    console.log('🚨 [BACKUP ALERT DEBUG] Fetching requests for user:', {
+      user: user ? 'exists' : 'null',
+      organization_id: user?.organization_id,
+      user_email: user?.email
+    })
+    
+    if (!user?.organization_id) {
+      console.log('🚨 [BACKUP ALERT DEBUG] No organization_id, skipping fetch')
+      return
+    }
     
     try {
-      const response = await fetch(`/api/backup-requests?organization_id=${user.organization_id}`)
+      const url = `/api/backup-requests?organization_id=${user.organization_id}`
+      console.log('🚨 [BACKUP ALERT DEBUG] Fetching from:', url)
+      
+      const response = await fetch(url)
+      console.log('🚨 [BACKUP ALERT DEBUG] Response status:', response.status)
+      
       if (response.ok) {
         const data = await response.json()
         const requests = data.backupRequests || []
+        
+        console.log('🚨 [BACKUP ALERT DEBUG] Raw requests:', requests.length, requests)
         
         // Fetch guard details for each request
         const requestsWithGuards = await Promise.all(requests.map(async (request: any) => {
@@ -75,10 +91,13 @@ export default function BackupRequestAlert() {
           }
         }))
         
+        console.log('🚨 [BACKUP ALERT DEBUG] Processed requests:', requestsWithGuards.length, requestsWithGuards)
         setBackupRequests(requestsWithGuards)
+      } else {
+        console.error('🚨 [BACKUP ALERT DEBUG] Request failed:', response.status, await response.text())
       }
     } catch (error) {
-      console.error('Error fetching backup requests:', error)
+      console.error('🚨 [BACKUP ALERT DEBUG] Fetch error:', error)
     }
   }
 
@@ -147,9 +166,18 @@ export default function BackupRequestAlert() {
 
   const activeRequests = backupRequests.filter(req => req.status === 'active')
   
+  console.log('🚨 [BACKUP ALERT DEBUG] Render check:', {
+    total_requests: backupRequests.length,
+    active_requests: activeRequests.length,
+    all_statuses: backupRequests.map(r => r.status)
+  })
+  
   if (activeRequests.length === 0) {
+    console.log('🚨 [BACKUP ALERT DEBUG] No active requests, hiding component')
     return null // Don't show anything if no active requests
   }
+  
+  console.log('🚨 [BACKUP ALERT DEBUG] Showing alerts for:', activeRequests.length, 'requests')
 
   return (
     <div className="fixed top-4 right-4 z-50 space-y-4 max-w-md">
