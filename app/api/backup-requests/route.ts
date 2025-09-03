@@ -123,9 +123,20 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Error creating backup request:', error)
+      console.error('Error creating backup request:', {
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        requestData: { guard_id, organization_id, patrol_id, emergency_type }
+      })
       return NextResponse.json(
-        { error: 'Failed to create backup request', details: error.message },
+        { 
+          error: 'Failed to create backup request', 
+          details: error.message,
+          code: error.code,
+          hint: error.hint 
+        },
         { status: 500 }
       )
     }
