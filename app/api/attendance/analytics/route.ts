@@ -4,6 +4,15 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { AttendanceAnalyticsServerService } from '@/lib/services/attendance-analytics-server'
 
+// Handle CORS preflight
+export async function OPTIONS(request: NextRequest) {
+  const response = new NextResponse(null, { status: 200 })
+  response.headers.set('Access-Control-Allow-Origin', '*')
+  response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  return response
+}
+
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies()
@@ -36,10 +45,14 @@ export async function GET(request: NextRequest) {
     
     if (userError || !user) {
       console.log('[Analytics API] Authentication failed:', userError)
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Unauthorized - please log in' },
         { status: 401 }
       )
+      response.headers.set('Access-Control-Allow-Origin', '*')
+      response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+      return response
     }
 
     // Get user profile using admin client to ensure we can access the data
@@ -126,11 +139,18 @@ export async function GET(request: NextRequest) {
         )
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: result,
       type: analyticsType
     })
+    
+    // Add CORS headers
+    response.headers.set('Access-Control-Allow-Origin', '*')
+    response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    
+    return response
 
   } catch (error) {
     console.error('Analytics API error:', error)

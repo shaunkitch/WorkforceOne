@@ -102,10 +102,18 @@ export default function AttendancePage() {
     try {
       setLoading(true)
       
-      // Get attendance records directly from Supabase
+      // Get attendance records with user details joined
       const { data: records, error } = await supabase
         .from('shift_attendance')
-        .select('*')
+        .select(`
+          *,
+          users:user_id (
+            id,
+            first_name,
+            last_name,
+            email
+          )
+        `)
         .order('timestamp', { ascending: false })
         .limit(100)
       
@@ -114,32 +122,14 @@ export default function AttendancePage() {
         return
       }
       
-      // Get unique user IDs from records
-      const userIds = [...new Set((records || []).map(r => r.user_id))].filter(Boolean)
-      
-      // Fetch user details separately if we have user IDs
-      let usersMap = new Map()
-      if (userIds.length > 0) {
-        const { data: users } = await supabase
-          .from('users')
-          .select('id, first_name, last_name, email')
-          .in('id', userIds)
-        
-        if (users) {
-          users.forEach(user => {
-            usersMap.set(user.id, user)
-          })
-        }
-      }
-      
       // Transform records to match component format
       const transformedRecords = (records || []).map(record => {
-        const user = usersMap.get(record.user_id)
+        const userData = record.users
         return {
           id: record.id,
           userId: record.user_id,
-          userName: user ? `${user.first_name} ${user.last_name}` : 'Unknown',
-          userEmail: user?.email,
+          userName: userData ? `${userData.first_name} ${userData.last_name}` : 'Guest User',
+          userEmail: userData?.email || '',
           shiftType: record.shift_type,
           timestamp: record.timestamp,
           latitude: record.latitude,

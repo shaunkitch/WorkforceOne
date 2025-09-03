@@ -162,6 +162,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const supabaseAdmin = getSupabaseAdmin()
+    
     if (action === 'start') {
       // Start a new patrol
       if (!route_id) {
@@ -235,6 +237,7 @@ export async function POST(request: NextRequest) {
 
     } else if (action === 'end') {
       // End the patrol
+      console.log('Ending patrol with:', { patrol_id, guard_id, organization_id })
       if (!patrol_id) {
         return NextResponse.json(
           { error: 'Patrol ID is required to end patrol' },
@@ -257,10 +260,15 @@ export async function POST(request: NextRequest) {
 
       if (updateError) {
         console.error('Error ending patrol:', updateError)
-        return NextResponse.json(
-          { error: 'Failed to end patrol' },
+        console.error('Update details:', { patrol_id, guard_id, organization_id })
+        const response = NextResponse.json(
+          { error: 'Failed to end patrol', details: updateError.message },
           { status: 500 }
         )
+        response.headers.set('Access-Control-Allow-Origin', '*')
+        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type')
+        return response
       }
 
       // Log activity
@@ -300,8 +308,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in mobile patrol POST:', error)
+    console.error('Error details:', error instanceof Error ? error.stack : error)
     const response = NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
     
