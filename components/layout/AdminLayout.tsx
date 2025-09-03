@@ -64,7 +64,7 @@ const sidebarNavItems = [
   },
   {
     title: 'Incidents',
-    href: '/dashboard/incidents',
+    href: '/dashboard/admin/incident-reports',
     icon: AlertTriangle,
     description: 'Security incident management'
   },
