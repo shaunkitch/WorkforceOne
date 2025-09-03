@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 // OPTIONS - Handle CORS preflight requests
 export async function OPTIONS(request: NextRequest) {
@@ -22,12 +23,39 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // TODO: Once database table is created, fetch actual data
-    console.log('[Incidents API] GET request - DB table pending')
+    const supabaseAdmin = getSupabaseAdmin()
+    
+    const { data: incidents, error } = await supabaseAdmin
+      .from('incident_reports')
+      .select(`
+        *,
+        users!guard_id (
+          id,
+          first_name,
+          last_name,
+          employee_id
+        ),
+        patrols (
+          id,
+          route_name,
+          start_time
+        )
+      `)
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching incident reports:', error)
+      return NextResponse.json(
+        { error: 'Failed to fetch incident reports' },
+        { status: 500 }
+      )
+    }
+
+    console.log(`[Incidents API] Retrieved ${incidents?.length || 0} incident reports`)
     
     return NextResponse.json({ 
-      incidentReports: [],
-      message: 'Database migration pending. Run supabase_incident_reports_migration.sql' 
+      incidentReports: incidents || []
     })
   } catch (error) {
     console.error('Error in GET /api/incidents:', error)
@@ -73,32 +101,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create mock response until DB table exists
-    const mockIncidentReport = {
-      id: `mock-${Date.now()}`,
-      guard_id,
-      organization_id,
-      incident_type,
-      title: title.trim(),
-      description: description.trim(),
-      severity,
-      status: 'reported',
-      incident_date: incident_date || new Date().toISOString(),
-      location_latitude,
-      location_longitude,
-      location_address,
-      photos,
-      patrol_id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+    const supabaseAdmin = getSupabaseAdmin()
+
+    // Insert incident report into database
+    const { data: incidentReport, error } = await supabaseAdmin
+      .from('incident_reports')
+      .insert({
+        guard_id,
+        organization_id,
+        incident_type,
+        title: title.trim(),
+        description: description.trim(),
+        severity,
+        status: 'reported',
+        incident_date: incident_date || new Date().toISOString(),
+        location_latitude: location_latitude ? parseFloat(location_latitude) : null,
+        location_longitude: location_longitude ? parseFloat(location_longitude) : null,
+        location_address,
+        photos: JSON.stringify(photos),
+        patrol_id
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error creating incident report:', error)
+      return NextResponse.json(
+        { error: 'Failed to create incident report', details: error.message },
+        { status: 500 }
+      )
     }
 
-    console.log('[Incidents API] Mock incident created:', mockIncidentReport.id)
+    console.log('[Incidents API] Incident report created:', incidentReport.id)
     
     const response = NextResponse.json({ 
       success: true, 
-      incidentReport: mockIncidentReport,
-      message: 'Incident received. Database migration pending for persistence.'
+      incidentReport,
+      message: 'Incident report created successfully'
     })
 
     // Set CORS headers
@@ -128,11 +167,32 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    console.log('[Incidents API] PUT request - DB table pending')
+    const supabaseAdmin = getSupabaseAdmin()
+
+    const { data: updatedReport, error } = await supabaseAdmin
+      .from('incident_reports')
+      .update({ 
+        status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating incident report:', error)
+      return NextResponse.json(
+        { error: 'Failed to update incident report', details: error.message },
+        { status: 500 }
+      )
+    }
+
+    console.log('[Incidents API] Incident report updated:', id)
     
     return NextResponse.json({ 
       success: true, 
-      message: 'Update received. Database migration pending for persistence.'
+      incidentReport: updatedReport,
+      message: 'Incident report updated successfully'
     })
 
   } catch (error: any) {
