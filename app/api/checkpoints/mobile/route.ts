@@ -204,8 +204,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('[Mobile Checkpoint API] Error:', error);
+    console.error('[Mobile Checkpoint API] Error stack:', error.stack);
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error', details: error.message, stack: error.stack },
       { status: 500 }
     )
   }
