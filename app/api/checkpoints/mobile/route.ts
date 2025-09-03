@@ -159,7 +159,9 @@ export async function POST(request: NextRequest) {
           console.error('[Mobile Checkpoint API] Error checking for duplicates:', duplicateCheckError);
           return NextResponse.json({
             success: false,
-            error: 'Failed to validate checkpoint visit'
+            error: 'Failed to validate checkpoint visit',
+            details: duplicateCheckError.message,
+            debugInfo: 'Error in duplicate check query'
           })
         }
 
