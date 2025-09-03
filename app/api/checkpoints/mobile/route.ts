@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
         console.error('[Mobile Checkpoint API] Error updating patrol:', patrolError);
       }
 
-      console.log('[Mobile Checkpoint API] Checkpoint visit recorded successfully');
+      console.log('[Mobile Checkpoint API] Checkpoint visit recorded successfully - patrol updated to', newCount);
       return NextResponse.json({
         success: true,
         checkpoint: {
