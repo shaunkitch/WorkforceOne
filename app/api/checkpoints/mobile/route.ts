@@ -148,12 +148,14 @@ export async function POST(request: NextRequest) {
 
         console.log('[Mobile Checkpoint API] Step 2: Checking for duplicate visits...');
         // Check if this checkpoint has already been visited during this patrol
-        const { data: existingVisit, error: duplicateCheckError } = await supabaseAdmin
+        const { data: existingVisits, error: duplicateCheckError } = await supabaseAdmin
           .from('checkpoint_visits')
           .select('id, visited_at')
           .eq('patrol_id', patrol_id)
           .eq('location_id', checkpoint.id)
-          .maybeSingle()
+          .limit(1)
+          
+        const existingVisit = existingVisits && existingVisits.length > 0 ? existingVisits[0] : null
 
         if (duplicateCheckError) {
           console.error('[Mobile Checkpoint API] Error checking for duplicates:', duplicateCheckError);
