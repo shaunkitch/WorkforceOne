@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS backup_requests (
   current_latitude DECIMAL(10, 8),
   current_longitude DECIMAL(11, 8),
   closest_checkpoint_id UUID REFERENCES locations(id) ON DELETE SET NULL,
-  distance_to_checkpoint INTEGER,
+  distance_to_checkpoint INTEGER, -- distance in meters (rounded)
   notes TEXT,
   responded_by UUID REFERENCES users(id) ON DELETE SET NULL,
   response_time TIMESTAMPTZ,
