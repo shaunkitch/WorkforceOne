@@ -42,7 +42,11 @@ CREATE TRIGGER trigger_backup_requests_updated_at
 -- Enable Row Level Security
 ALTER TABLE backup_requests ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies
+-- Create RLS policies (drop existing ones first to avoid conflicts)
+DROP POLICY IF EXISTS "Users can view backup requests for their organization" ON backup_requests;
+DROP POLICY IF EXISTS "Users can create backup requests for their organization" ON backup_requests;
+DROP POLICY IF EXISTS "Admin users can update backup requests" ON backup_requests;
+
 CREATE POLICY "Users can view backup requests for their organization"
   ON backup_requests FOR SELECT
   USING (
