@@ -104,8 +104,8 @@ export default function IncidentsPage() {
     const matchesSearch = !searchTerm || 
       report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       report.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.guard.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.guard.last_name.toLowerCase().includes(searchTerm.toLowerCase())
+      report.users?.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      report.users?.last_name.toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesType = typeFilter === 'all' || report.incident_type === typeFilter
     const matchesSeverity = severityFilter === 'all' || report.severity === severityFilter
@@ -233,8 +233,8 @@ export default function IncidentsPage() {
 
         <div class="section">
           <h3>Reporter Information</h3>
-          <div class="field"><div class="field-label">Guard:</div><div>${report.guard.first_name} ${report.guard.last_name}</div></div>
-          <div class="field"><div class="field-label">Email:</div><div>${report.guard.email}</div></div>
+          <div class="field"><div class="field-label">Guard:</div><div>${report.users?.first_name} ${report.users?.last_name}</div></div>
+          <div class="field"><div class="field-label">Email:</div><div>${report.users?.email}</div></div>
           <div class="field"><div class="field-label">Incident Date:</div><div>${new Date(report.incident_date).toLocaleString()}</div></div>
           <div class="field"><div class="field-label">Report Submitted:</div><div>${new Date(report.created_at).toLocaleString()}</div></div>
         </div>
@@ -439,7 +439,7 @@ export default function IncidentsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4" />
-                      <span>{report.guard.first_name} {report.guard.last_name}</span>
+                      <span>{report.users?.first_name} {report.users?.last_name}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4" />
