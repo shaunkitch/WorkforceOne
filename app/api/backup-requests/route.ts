@@ -27,20 +27,7 @@ export async function GET(request: NextRequest) {
     // Get active backup requests with guard and location info
     const { data: backupRequests, error } = await supabaseAdmin
       .from('backup_requests')
-      .select(`
-        *,
-        guard:guard_id (
-          first_name,
-          last_name,
-          email
-        ),
-        location:closest_checkpoint_id (
-          name,
-          address,
-          latitude,
-          longitude
-        )
-      `)
+      .select('*')
       .eq('organization_id', organizationId)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
@@ -132,20 +119,7 @@ export async function POST(request: NextRequest) {
         notes,
         created_at: new Date().toISOString()
       })
-      .select(`
-        *,
-        guard:guard_id (
-          first_name,
-          last_name,
-          email
-        ),
-        location:closest_checkpoint_id (
-          name,
-          address,
-          latitude,
-          longitude
-        )
-      `)
+      .select('*')
       .single()
 
     if (error) {

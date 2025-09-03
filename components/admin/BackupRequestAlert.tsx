@@ -47,7 +47,35 @@ export default function BackupRequestAlert() {
       const response = await fetch(`/api/backup-requests?organization_id=${user.organization_id}`)
       if (response.ok) {
         const data = await response.json()
-        setBackupRequests(data.backupRequests || [])
+        const requests = data.backupRequests || []
+        
+        // Fetch guard details for each request
+        const requestsWithGuards = await Promise.all(requests.map(async (request: any) => {
+          try {
+            const guardResponse = await fetch(`/api/users/${request.guard_id}`)
+            const guardData = guardResponse.ok ? await guardResponse.json() : null
+            
+            let locationData = null
+            if (request.closest_checkpoint_id) {
+              const locationResponse = await fetch(`/api/locations/${request.closest_checkpoint_id}`)
+              locationData = locationResponse.ok ? await locationResponse.json() : null
+            }
+            
+            return {
+              ...request,
+              guard: guardData || { first_name: 'Unknown', last_name: 'Guard', email: '' },
+              location: locationData
+            }
+          } catch (err) {
+            return {
+              ...request,
+              guard: { first_name: 'Unknown', last_name: 'Guard', email: '' },
+              location: null
+            }
+          }
+        }))
+        
+        setBackupRequests(requestsWithGuards)
       }
     } catch (error) {
       console.error('Error fetching backup requests:', error)
