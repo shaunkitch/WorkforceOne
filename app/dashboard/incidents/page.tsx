@@ -248,10 +248,10 @@ export default function IncidentsPage() {
         </div>
         ` : ''}
 
-        ${report.photos && report.photos.length > 0 ? `
+        ${report.photos ? `
         <div class="section">
           <h3>Evidence Photos</h3>
-          <div class="field"><div class="field-label">Photos Attached:</div><div>${report.photos.length} photo(s)</div></div>
+          <div class="field"><div class="field-label">Photos Attached:</div><div>${typeof report.photos === 'string' ? JSON.parse(report.photos).length : (report.photos?.length || 0)} photo(s)</div></div>
         </div>
         ` : ''}
 
@@ -452,10 +452,14 @@ export default function IncidentsPage() {
                       </div>
                     )}
                   </div>
-                  {report.photos && report.photos.length > 0 && (
+                  {report.photos && (
                     <div className="mt-3">
                       <span className="text-sm text-gray-500">
-                        📸 {report.photos.length} photo{report.photos.length !== 1 ? 's' : ''} attached
+                        📸 {typeof report.photos === 'string' 
+                          ? JSON.parse(report.photos).length 
+                          : report.photos.length} photo{(typeof report.photos === 'string' 
+                          ? JSON.parse(report.photos).length 
+                          : report.photos.length) !== 1 ? 's' : ''} attached
                       </span>
                     </div>
                   )}
@@ -545,14 +549,22 @@ export default function IncidentsPage() {
                   )}
 
                   {/* Photos */}
-                  {selectedReport.photos && selectedReport.photos.length > 0 && (
+                  {selectedReport.photos && (
                     <div>
-                      <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <Camera className="h-4 w-4" />
-                        Photos ({selectedReport.photos.length})
-                      </h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {selectedReport.photos.map((photo: any, index: number) => (
+                      {(() => {
+                        const photos = typeof selectedReport.photos === 'string' 
+                          ? JSON.parse(selectedReport.photos) 
+                          : selectedReport.photos;
+                        if (!photos || photos.length === 0) return null;
+                        
+                        return (
+                          <>
+                            <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                              <Camera className="h-4 w-4" />
+                              Photos ({photos.length})
+                            </h4>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                              {photos.map((photo: any, index: number) => (
                           <div key={index} className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
                             {photo.uri ? (
                               <img 
@@ -567,8 +579,11 @@ export default function IncidentsPage() {
                               </div>
                             )}
                           </div>
-                        ))}
-                      </div>
+                              ))}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
 
