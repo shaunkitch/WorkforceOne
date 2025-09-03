@@ -65,7 +65,20 @@ export async function POST(request: NextRequest) {
       notes
     } = body
 
-    console.log('[Backup Request] New request:', { guard_id, organization_id, patrol_id, emergency_type })
+    console.log('[Backup Request] Full request details:', {
+      body: JSON.stringify(body),
+      guard_id,
+      organization_id,
+      current_latitude,
+      current_longitude,
+      patrol_id,
+      emergency_type,
+      notes,
+      headers: {
+        'content-type': request.headers.get('content-type'),
+        'user-agent': request.headers.get('user-agent'),
+      }
+    })
 
     if (!guard_id || !organization_id) {
       return NextResponse.json(
