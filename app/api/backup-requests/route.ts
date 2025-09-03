@@ -125,10 +125,10 @@ export async function POST(request: NextRequest) {
         current_latitude,
         current_longitude,
         closest_checkpoint_id: closestCheckpoint?.id,
-        distance_to_checkpoint: closestCheckpoint ? calculateDistance(
+        distance_to_checkpoint: closestCheckpoint ? Math.round(calculateDistance(
           current_latitude, current_longitude,
           closestCheckpoint.latitude, closestCheckpoint.longitude
-        ) : null,
+        )) : null,
         notes,
         created_at: new Date().toISOString()
       })
