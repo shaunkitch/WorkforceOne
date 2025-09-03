@@ -146,39 +146,7 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        console.log('[Mobile Checkpoint API] Step 2: Checking for duplicate visits...');
-        // Check if this checkpoint has already been visited during this patrol
-        const { data: existingVisits, error: duplicateCheckError } = await supabaseAdmin
-          .from('checkpoint_visits')
-          .select('id, visited_at')
-          .eq('patrol_id', patrol_id)
-          .eq('location_id', checkpoint.id)
-          .limit(1)
-          
-        const existingVisit = existingVisits && existingVisits.length > 0 ? existingVisits[0] : null
-
-        if (duplicateCheckError) {
-          console.error('[Mobile Checkpoint API] Error checking for duplicates:', duplicateCheckError);
-          return NextResponse.json({
-            success: false,
-            error: 'Failed to validate checkpoint visit',
-            details: duplicateCheckError.message,
-            debugInfo: 'Error in duplicate check query'
-          })
-        }
-
-        if (existingVisit) {
-          console.log('[Mobile Checkpoint API] Duplicate checkpoint detected:', existingVisit);
-          const visitTime = new Date(existingVisit.visited_at).toLocaleTimeString()
-          return NextResponse.json({
-            success: false,
-            error: `This checkpoint was already visited during this patrol at ${visitTime}.`,
-            isDuplicate: true,
-            previousVisit: existingVisit.visited_at
-          })
-        }
-
-        console.log('[Mobile Checkpoint API] Step 3: Recording new visit...');
+        console.log('[Mobile Checkpoint API] Step 2: Recording visit (duplicate check temporarily disabled)...');
         // Record the visit
         const { error: visitError } = await supabaseAdmin
           .from('checkpoint_visits')
@@ -201,7 +169,7 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        console.log('[Mobile Checkpoint API] Step 4: Getting current patrol count...');
+        console.log('[Mobile Checkpoint API] Step 3: Getting current patrol count...');
         // Update patrol checkpoints completed - first get current count
         const { data: currentPatrol } = await supabaseAdmin
           .from('patrols')
@@ -209,10 +177,10 @@ export async function POST(request: NextRequest) {
           .eq('id', patrol_id)
           .single()
         
-        console.log('[Mobile Checkpoint API] Step 5: Calculating new count...');
+        console.log('[Mobile Checkpoint API] Step 4: Calculating new count...');
         const newCount = (currentPatrol?.checkpoints_completed || 0) + 1
         
-        console.log('[Mobile Checkpoint API] Step 6: Updating patrol...');
+        console.log('[Mobile Checkpoint API] Step 5: Updating patrol...');
         const { error: patrolError } = await supabaseAdmin
           .from('patrols')
           .update({ 
