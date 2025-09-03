@@ -166,11 +166,19 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Update patrol checkpoints completed
+      // Update patrol checkpoints completed - first get current count
+      const { data: currentPatrol } = await supabaseAdmin
+        .from('patrols')
+        .select('checkpoints_completed')
+        .eq('id', patrol_id)
+        .single()
+      
+      const newCount = (currentPatrol?.checkpoints_completed || 0) + 1
+      
       const { error: patrolError } = await supabaseAdmin
         .from('patrols')
         .update({ 
-          checkpoints_completed: supabaseAdmin.sql`checkpoints_completed + 1` 
+          checkpoints_completed: newCount
         })
         .eq('id', patrol_id)
 
