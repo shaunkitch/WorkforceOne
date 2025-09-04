@@ -15,13 +15,13 @@ import {
   AlertTriangle, 
   Settings, 
   BarChart3, 
-  Key, 
   QrCode,
   Menu,
   LogOut,
   Bell,
   Search,
-  User
+  User,
+  CheckSquare
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Toaster } from '@/components/ui/toaster'
@@ -55,6 +55,12 @@ const sidebarNavItems = [
     href: '/dashboard/patrols',
     icon: MapPin,
     description: 'Monitor patrol routes'
+  },
+  {
+    title: 'Patrol Requirements',
+    href: '/dashboard/patrol-requirements',
+    icon: CheckSquare,
+    description: 'Configure patrol performance settings'
   },
   {
     title: 'Live Tracking',
