@@ -29,44 +29,79 @@ export default function SimpleLiveMap() {
   const [activeUsers, setActiveUsers] = useState(0)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [viewMode, setViewMode] = useState<'visual' | 'table'>('visual')
+  const [error, setError] = useState<string | null>(null)
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [refreshInterval, setRefreshInterval] = useState(30) // seconds
 
-  // Load user positions
+  // Load user positions with enhanced error handling
   const loadUserPositions = useCallback(async () => {
     try {
+      setError(null) // Clear previous errors
       console.log('SimpleLiveMap: Fetching active user positions...')
       
-      const response = await fetch('/api/gps/active')
-      const result = await response.json()
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout
       
+      const response = await fetch('/api/gps/active', {
+        signal: controller.signal,
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      })
+      
+      clearTimeout(timeoutId)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
+      const result = await response.json()
       console.log('SimpleLiveMap: API result:', result)
       
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Failed to load GPS data')
+      if (!result.success) {
+        throw new Error(result.error || 'API returned error')
       }
       
       const positions = result.positions || []
       
-      if (positions.length === 0) {
-        console.log('SimpleLiveMap: No active users found')
-        setActiveUsers(0)
-        setPositions([])
-        setLastUpdate(new Date())
-        return
+      // Validate position data
+      const validPositions = positions.filter(pos => 
+        pos.position?.latitude !== undefined && 
+        pos.position?.longitude !== undefined &&
+        typeof pos.position.latitude === 'number' &&
+        typeof pos.position.longitude === 'number' &&
+        Math.abs(pos.position.latitude) <= 90 &&
+        Math.abs(pos.position.longitude) <= 180
+      )
+      
+      if (validPositions.length !== positions.length) {
+        console.warn(`Filtered ${positions.length - validPositions.length} invalid positions`)
       }
-
-      console.log('SimpleLiveMap: Processing', positions.length, 'user positions')
-      setPositions(positions)
-      setActiveUsers(positions.length)
+      
+      console.log('SimpleLiveMap: Processing', validPositions.length, 'valid user positions')
+      setPositions(validPositions)
+      setActiveUsers(validPositions.length)
       setLastUpdate(new Date())
       
+      // Show success message if recovering from error
+      if (error) {
+        setError(null)
+      }
+      
     } catch (error) {
-      console.error('SimpleLiveMap: Error loading user positions:', error)
-      setActiveUsers(0)
-      setPositions([])
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      console.error('SimpleLiveMap: Error loading user positions:', errorMessage)
+      setError(errorMessage)
+      
+      // Don't clear positions on error - keep showing last known positions
+      if (positions.length === 0) {
+        setActiveUsers(0)
+      }
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [error, positions.length])
 
   // Create a visual map representation using CSS and coordinates
   const createVisualMap = () => {
@@ -178,13 +213,15 @@ export default function SimpleLiveMap() {
   useEffect(() => {
     loadUserPositions()
     
-    // Set up auto-refresh
+    // Set up auto-refresh only if enabled
+    if (!autoRefresh) return
+
     const interval = setInterval(() => {
       loadUserPositions()
-    }, 30000) // Refresh every 30 seconds
+    }, refreshInterval * 1000) // Convert seconds to milliseconds
 
     return () => clearInterval(interval)
-  }, [loadUserPositions])
+  }, [loadUserPositions, autoRefresh, refreshInterval])
 
   if (loading) {
     return (
@@ -199,6 +236,27 @@ export default function SimpleLiveMap() {
 
   return (
     <div className="space-y-4">
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 rounded-full bg-red-500"></div>
+            <h4 className="font-medium text-red-900">Connection Error</h4>
+          </div>
+          <p className="text-red-700 text-sm mt-1">{error}</p>
+          <div className="mt-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => loadUserPositions()}
+              className="text-red-700 border-red-300 hover:bg-red-50"
+            >
+              Retry Connection
+            </Button>
+          </div>
+        </div>
+      )}
+      
       {/* Map Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -212,8 +270,34 @@ export default function SimpleLiveMap() {
               <span>Updated {lastUpdate.toLocaleTimeString()}</span>
             </Badge>
           )}
+          {!autoRefresh && (
+            <Badge variant="destructive" className="text-xs">
+              Auto-refresh OFF
+            </Badge>
+          )}
         </div>
-        <div className="flex space-x-2">
+        <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mr-4">
+            <label htmlFor="auto-refresh" className="text-sm text-gray-600">Auto-refresh:</label>
+            <input 
+              id="auto-refresh"
+              type="checkbox" 
+              checked={autoRefresh} 
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <select 
+              value={refreshInterval} 
+              onChange={(e) => setRefreshInterval(parseInt(e.target.value))}
+              className="text-xs border rounded px-1 py-1"
+              disabled={!autoRefresh}
+            >
+              <option value={10}>10s</option>
+              <option value={30}>30s</option>
+              <option value={60}>1m</option>
+              <option value={300}>5m</option>
+            </select>
+          </div>
           <Button
             variant={viewMode === 'visual' ? 'default' : 'outline'}
             size="sm"
@@ -234,8 +318,9 @@ export default function SimpleLiveMap() {
             variant="outline"
             size="sm"
             onClick={() => loadUserPositions()}
+            disabled={loading}
           >
-            Refresh
+            {loading ? 'Refreshing...' : 'Refresh'}
           </Button>
         </div>
       </div>
@@ -390,17 +475,23 @@ export default function SimpleLiveMap() {
               <h4 className="font-medium mb-2">System Status</h4>
               <div className="space-y-1 text-sm">
                 <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  <span>GPS Tracking: Active</span>
+                  <div className={`w-3 h-3 rounded-full ${error ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                  <span>Connection: {error ? 'Error' : 'Active'}</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                  <span>Auto-Refresh: 30 seconds</span>
+                  <div className={`w-3 h-3 rounded-full ${autoRefresh ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
+                  <span>Auto-Refresh: {autoRefresh ? `${refreshInterval}s` : 'Disabled'}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-                  <span>Database: {activeUsers} records</span>
+                  <span>Active Guards: {activeUsers}</span>
                 </div>
+                {lastUpdate && (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                    <span>Last Update: {Math.round((Date.now() - lastUpdate.getTime()) / 1000)}s ago</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
