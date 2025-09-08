@@ -257,8 +257,7 @@ export default function AttendancePage() {
       const { error } = await supabase
         .from('qr_codes')
         .update({ 
-          is_active: false,
-          updated_at: new Date().toISOString()
+          is_active: false
         })
         .eq('id', qrId)
       
