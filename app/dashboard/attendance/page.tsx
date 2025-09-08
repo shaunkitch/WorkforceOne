@@ -118,29 +118,43 @@ export default function AttendancePage() {
       // Get unique user IDs from records
       const userIds = [...new Set((records || []).map(r => r.user_id).filter(Boolean))]
       
-      // Fetch user details separately
+      // Fetch user details via API to bypass RLS issues
       let userMap: Record<string, any> = {}
       if (userIds.length > 0) {
-        const { data: users } = await supabase
-          .from('users')
-          .select('id, first_name, last_name, email')
-          .in('id', userIds)
-        
-        if (users) {
-          userMap = users.reduce((acc, user) => {
-            acc[user.id] = user
-            return acc
-          }, {} as Record<string, any>)
+        try {
+          const response = await fetch(`/api/users?userIds=${userIds.join(',')}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          })
+
+          if (response.ok) {
+            const { users } = await response.json()
+            
+            if (users) {
+              userMap = users.reduce((acc: Record<string, any>, user: any) => {
+                acc[user.id] = user
+                return acc
+              }, {} as Record<string, any>)
+            }
+          } else {
+            console.error('❌ Failed to fetch users via API:', response.status)
+          }
+        } catch (error) {
+          console.error('❌ Error fetching users via API:', error)
         }
       }
       
       // Transform records to match component format
       const transformedRecords = (records || []).map(record => {
         const userData = userMap[record.user_id]
+        const userName = userData ? `${userData.first_name} ${userData.last_name}` : 'Guest User'
+        
         return {
           id: record.id,
           userId: record.user_id,
-          userName: userData ? `${userData.first_name} ${userData.last_name}` : 'Guest User',
+          userName,
           userEmail: userData?.email || '',
           shiftType: record.shift_type,
           timestamp: record.timestamp,

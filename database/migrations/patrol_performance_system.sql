@@ -62,13 +62,19 @@ CREATE TABLE IF NOT EXISTS patrol_performance_metrics (
   incidents_reported integer DEFAULT 0,
   proactive_score numeric DEFAULT 0, -- Bonus points for exceeding requirements
   
-  -- Overall performance score
+  -- Overall performance score (calculated from base columns, not generated columns)
   overall_performance_score numeric GENERATED ALWAYS AS (
-    CASE WHEN compliance_rate > 0 THEN
+    CASE WHEN required_patrols > 0 THEN
       ROUND(
-        (compliance_rate * 0.3) + -- 30% compliance
-        (checkpoint_completion_rate * 0.25) + -- 25% checkpoint quality  
-        (photo_compliance_rate * 0.15) + -- 15% photo compliance
+        ((CASE WHEN required_patrols > 0 
+          THEN (completed_patrols::numeric / required_patrols::numeric) * 100
+          ELSE 0 END) * 0.3) + -- 30% compliance
+        ((CASE WHEN total_checkpoints_required > 0 
+          THEN (total_checkpoints_completed::numeric / total_checkpoints_required::numeric) * 100
+          ELSE 0 END) * 0.25) + -- 25% checkpoint quality  
+        ((CASE WHEN photos_required > 0 
+          THEN (photos_taken::numeric / photos_required::numeric) * 100
+          ELSE 0 END) * 0.15) + -- 15% photo compliance
         (patrol_distribution_score * 0.2) + -- 20% time distribution
         (proactive_score * 0.1), -- 10% proactive behavior
         2
