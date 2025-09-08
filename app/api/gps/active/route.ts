@@ -4,12 +4,41 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   const supabaseAdmin = getSupabaseAdmin()
   try {
-    console.log('Testing getActiveUsersPositions direct implementation...')
+    console.log('Fetching live patrol positions from checkpoint visits...')
     
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-    console.log('Looking for GPS data after:', thirtyMinutesAgo)
+    console.log('Looking for patrol activity after:', thirtyMinutesAgo)
     
-    const { data, error } = await supabaseAdmin
+    // Get recent checkpoint visits (guards on patrol)
+    const { data: checkpointData, error: checkpointError } = await supabaseAdmin
+      .from('checkpoint_visits')
+      .select(`
+        guard_id,
+        latitude,
+        longitude,
+        visited_at,
+        location_id,
+        patrol_id,
+        users:guard_id (
+          first_name,
+          last_name
+        ),
+        locations:location_id (
+          name
+        ),
+        patrols:patrol_id (
+          status
+        )
+      `)
+      .gte('visited_at', thirtyMinutesAgo)
+      .not('latitude', 'is', null)
+      .not('longitude', 'is', null)
+      .order('visited_at', { ascending: false })
+
+    console.log('Checkpoint visits query result:', { checkpointData, checkpointError, count: checkpointData?.length })
+
+    // Also get recent GPS tracking data for guards not at checkpoints
+    const { data: gpsData, error: gpsError } = await supabaseAdmin
       .from('gps_tracking')
       .select(`
         user_id,
@@ -29,7 +58,49 @@ export async function GET() {
       .gte('timestamp', thirtyMinutesAgo)
       .order('timestamp', { ascending: false })
 
-    console.log('Query result:', { data, error, count: data?.length })
+    console.log('GPS tracking query result:', { gpsData, gpsError, count: gpsData?.length })
+
+    // Combine both data sources
+    let allData = []
+    
+    // Add checkpoint visit data
+    if (checkpointData) {
+      checkpointData.forEach(visit => {
+        allData.push({
+          user_id: visit.guard_id,
+          latitude: visit.latitude,
+          longitude: visit.longitude,
+          timestamp: visit.visited_at,
+          source: 'checkpoint_visit',
+          location_name: visit.locations?.name,
+          patrol_status: visit.patrols?.status,
+          users: visit.users
+        })
+      })
+    }
+
+    // Add GPS tracking data
+    if (gpsData) {
+      gpsData.forEach(gps => {
+        allData.push({
+          user_id: gps.user_id,
+          latitude: gps.latitude,
+          longitude: gps.longitude,
+          accuracy: gps.accuracy,
+          altitude: gps.altitude,
+          speed: gps.speed,
+          heading: gps.heading,
+          battery_level: gps.battery_level,
+          timestamp: gps.timestamp,
+          source: 'gps_tracking',
+          users: gps.users
+        })
+      })
+    }
+
+    const error = checkpointError || gpsError
+
+    console.log('Combined data result:', { allData, error, count: allData?.length })
 
     if (error) {
       console.error('Database error:', error)
@@ -39,7 +110,7 @@ export async function GET() {
           success: true,
           count: 0,
           positions: [],
-          message: 'GPS tracking table not found - no active positions available'
+          message: 'Patrol tracking tables not found - no active positions available'
         })
       }
       return NextResponse.json({
@@ -49,19 +120,19 @@ export async function GET() {
       })
     }
 
-    if (!data) {
+    if (!allData || allData.length === 0) {
       return NextResponse.json({
         success: true,
         count: 0,
         positions: [],
-        message: 'No GPS data found'
+        message: 'No active patrol positions found'
       })
     }
 
-    // Group by user_id and get latest position
+    // Group by user_id and get latest position from either source
     const userPositions = new Map()
 
-    data.forEach(item => {
+    allData.forEach(item => {
       if (!userPositions.has(item.user_id) || 
           new Date(item.timestamp) > new Date(userPositions.get(item.user_id).timestamp)) {
         userPositions.set(item.user_id, item)
@@ -74,13 +145,16 @@ export async function GET() {
       position: {
         latitude: item.latitude,
         longitude: item.longitude,
-        accuracy: item.accuracy,
-        altitude: item.altitude,
-        speed: item.speed,
-        heading: item.heading,
+        accuracy: item.accuracy || null,
+        altitude: item.altitude || null,
+        speed: item.speed || null,
+        heading: item.heading || null,
         timestamp: item.timestamp
       },
-      batteryLevel: item.battery_level
+      batteryLevel: item.battery_level || null,
+      source: item.source,
+      locationName: item.location_name,
+      patrolStatus: item.patrol_status
     }))
     
     console.log('Final positions:', positions)

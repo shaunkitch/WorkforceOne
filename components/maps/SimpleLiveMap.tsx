@@ -20,6 +20,9 @@ interface UserPosition {
     timestamp: string
   }
   batteryLevel?: number
+  source?: string
+  locationName?: string
+  patrolStatus?: string
 }
 
 export default function SimpleLiveMap() {
@@ -170,14 +173,25 @@ export default function SimpleLiveMap() {
                 {index + 1}
               </div>
               
-              {/* Tooltip */}
+              {/* Enhanced Tooltip */}
               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                <div className="bg-black text-white text-xs rounded py-2 px-3 whitespace-nowrap">
-                  <div className="font-bold">{pos.userName}</div>
-                  <div>{pos.position.latitude.toFixed(6)}, {pos.position.longitude.toFixed(6)}</div>
-                  <div>Battery: {pos.batteryLevel || 'Unknown'}%</div>
-                  <div>Updated: {new Date(pos.position.timestamp).toLocaleTimeString()}</div>
-                  {pos.position.speed && <div>Speed: {Math.round((pos.position.speed || 0) * 3.6)} km/h</div>}
+                <div className="bg-black text-white text-xs rounded py-2 px-3 whitespace-nowrap min-w-max">
+                  <div className="font-bold text-center">{pos.userName}</div>
+                  <hr className="my-1 border-gray-600" />
+                  <div>📍 {pos.position.latitude.toFixed(6)}, {pos.position.longitude.toFixed(6)}</div>
+                  {pos.locationName && (
+                    <div>🏢 {pos.locationName}</div>
+                  )}
+                  <div>🔋 Battery: {pos.batteryLevel || 'Unknown'}%</div>
+                  <div>🕒 {new Date(pos.position.timestamp).toLocaleTimeString()}</div>
+                  {pos.position.speed && <div>⚡ Speed: {Math.round((pos.position.speed || 0) * 3.6)} km/h</div>}
+                  {pos.position.accuracy && <div>🎯 Accuracy: ±{pos.position.accuracy.toFixed(1)}m</div>}
+                  <div className="text-gray-300 border-t border-gray-600 pt-1 mt-1">
+                    📊 Source: {pos.source === 'checkpoint_visit' ? '🚪 Checkpoint Visit' : '📱 GPS Tracking'}
+                  </div>
+                  {pos.patrolStatus && (
+                    <div className="text-green-300">🛡️ Status: {pos.patrolStatus}</div>
+                  )}
                   {/* Tooltip arrow */}
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-black"></div>
                 </div>
@@ -376,10 +390,10 @@ export default function SimpleLiveMap() {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left py-2">Guard</th>
-                      <th className="text-left py-2">GPS Coordinates</th>
+                      <th className="text-left py-2">Location/GPS</th>
                       <th className="text-left py-2">Battery</th>
                       <th className="text-left py-2">Last Update</th>
-                      <th className="text-left py-2">Details</th>
+                      <th className="text-left py-2">Source & Details</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -391,6 +405,9 @@ export default function SimpleLiveMap() {
                         </td>
                         <td className="py-3">
                           <div className="text-xs space-y-1">
+                            {pos.locationName && (
+                              <div className="font-medium text-blue-600">🏢 {pos.locationName}</div>
+                            )}
                             <div><strong>Lat:</strong> {pos.position.latitude.toFixed(6)}</div>
                             <div><strong>Lng:</strong> {pos.position.longitude.toFixed(6)}</div>
                             {pos.position.accuracy && (
@@ -426,6 +443,12 @@ export default function SimpleLiveMap() {
                         </td>
                         <td className="py-3">
                           <div className="text-xs space-y-1">
+                            <div className="font-medium text-purple-600">
+                              📊 {pos.source === 'checkpoint_visit' ? '🚪 Checkpoint' : '📱 GPS Track'}
+                            </div>
+                            {pos.patrolStatus && (
+                              <div className="text-green-600">🛡️ {pos.patrolStatus}</div>
+                            )}
                             {pos.position.speed && (
                               <div><strong>Speed:</strong> {Math.round((pos.position.speed || 0) * 3.6)} km/h</div>
                             )}
