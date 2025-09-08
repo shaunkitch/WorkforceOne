@@ -18,7 +18,7 @@ import { OfflineAttendanceService } from '@/lib/services/offline-attendance'
 import { 
   Shield, QrCode, Users, Clock, MapPin, 
   Calendar, Download, RefreshCw, CheckCircle, XCircle, 
-  UserCheck, UserX, Clipboard
+  UserCheck, UserX, Clipboard, Trash2
 } from 'lucide-react'
 
 interface AttendanceRecord {
@@ -68,6 +68,7 @@ export default function AttendancePage() {
   const [qrType, setQrType] = useState<'static' | 'random'>('static')
   const [activeTab, setActiveTab] = useState('overview')
   const [generatingQR, setGeneratingQR] = useState(false)
+  const [deletingQR, setDeletingQR] = useState<string | null>(null)
   
   // Enhanced analytics state
   const [metrics, setMetrics] = useState<AttendanceMetrics | null>(null)
@@ -102,18 +103,10 @@ export default function AttendancePage() {
     try {
       setLoading(true)
       
-      // Get attendance records with user details joined
+      // Get attendance records without joins to avoid foreign key issues
       const { data: records, error } = await supabase
         .from('shift_attendance')
-        .select(`
-          *,
-          users:user_id (
-            id,
-            first_name,
-            last_name,
-            email
-          )
-        `)
+        .select('*')
         .order('timestamp', { ascending: false })
         .limit(100)
       
@@ -122,9 +115,28 @@ export default function AttendancePage() {
         return
       }
       
+      // Get unique user IDs from records
+      const userIds = [...new Set((records || []).map(r => r.user_id).filter(Boolean))]
+      
+      // Fetch user details separately
+      let userMap: Record<string, any> = {}
+      if (userIds.length > 0) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, first_name, last_name, email')
+          .in('id', userIds)
+        
+        if (users) {
+          userMap = users.reduce((acc, user) => {
+            acc[user.id] = user
+            return acc
+          }, {} as Record<string, any>)
+        }
+      }
+      
       // Transform records to match component format
       const transformedRecords = (records || []).map(record => {
-        const userData = record.users
+        const userData = userMap[record.user_id]
         return {
           id: record.id,
           userId: record.user_id,
@@ -220,6 +232,41 @@ export default function AttendancePage() {
       console.error('Error generating QR code:', error)
     } finally {
       setGeneratingQR(false)
+    }
+  }
+
+  const deleteQRCode = async (qrId: string) => {
+    try {
+      setDeletingQR(qrId)
+      
+      // Soft delete by setting is_active to false
+      const { error } = await supabase
+        .from('qr_codes')
+        .update({ 
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', qrId)
+      
+      if (error) {
+        console.error('Error deleting QR code:', error)
+        alert('Failed to delete QR code. Please try again.')
+        return
+      }
+      
+      // Reload QR codes to update the display
+      await loadQRCodes()
+    } catch (error) {
+      console.error('Error deleting QR code:', error)
+      alert('Failed to delete QR code. Please try again.')
+    } finally {
+      setDeletingQR(null)
+    }
+  }
+
+  const confirmDeleteQR = (qrId: string, qrCode: string) => {
+    if (confirm(`Are you sure you want to delete QR code "${qrCode}"? This action cannot be undone.`)) {
+      deleteQRCode(qrId)
     }
   }
 
@@ -335,6 +382,45 @@ export default function AttendancePage() {
     } catch (error) {
       console.error('Sync error:', error)
     }
+  }
+
+  const exportToCSV = () => {
+    if (attendanceRecords.length === 0) {
+      alert('No records to export')
+      return
+    }
+
+    // Prepare CSV content
+    const headers = ['Guard Name', 'Email', 'Action', 'Date', 'Time', 'Location', 'QR Type']
+    const rows = attendanceRecords.map(record => [
+      record.userName || 'Unknown',
+      record.userEmail || '',
+      record.shiftType === 'check_in' ? 'Check In' : 'Check Out',
+      new Date(record.timestamp).toLocaleDateString(),
+      new Date(record.timestamp).toLocaleTimeString(),
+      `${record.latitude.toFixed(4)}, ${record.longitude.toFixed(4)}`,
+      record.qrCodeType || 'N/A'
+    ])
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n')
+
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `attendance-report-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  }
+
+  const exportToPDF = () => {
+    alert('PDF export will be implemented soon. For now, please use CSV export.')
   }
 
   if (authLoading || loading) {
@@ -500,7 +586,7 @@ export default function AttendancePage() {
                       <Card key={qr.id}>
                         <CardHeader>
                           <div className="flex justify-between items-start">
-                            <div>
+                            <div className="flex-1">
                               <CardTitle className="text-sm">
                                 {qr.type === 'static' ? 'Static' : 'Random'} QR Code
                               </CardTitle>
@@ -508,9 +594,24 @@ export default function AttendancePage() {
                                 {qr.code}
                               </CardDescription>
                             </div>
-                            <Badge variant={qr.type === 'static' ? 'default' : 'secondary'}>
-                              {qr.type}
-                            </Badge>
+                            <div className="flex items-center space-x-2">
+                              <Badge variant={qr.type === 'static' ? 'default' : 'secondary'}>
+                                {qr.type}
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => confirmDeleteQR(qr.id, qr.code)}
+                                disabled={deletingQR === qr.id}
+                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                {deletingQR === qr.id ? (
+                                  <RefreshCw className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent>
@@ -636,11 +737,11 @@ export default function AttendancePage() {
                       Download attendance records for reporting and analysis
                     </p>
                     <div className="flex justify-center space-x-4">
-                      <Button variant="outline">
+                      <Button variant="outline" onClick={exportToCSV}>
                         <Download className="h-4 w-4 mr-2" />
                         Export as CSV
                       </Button>
-                      <Button variant="outline">
+                      <Button variant="outline" onClick={exportToPDF}>
                         <Download className="h-4 w-4 mr-2" />
                         Export as PDF
                       </Button>

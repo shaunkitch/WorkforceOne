@@ -17,7 +17,12 @@ export class AttendanceAnalyticsClient {
         endDate: endDate.toISOString()
       })
 
-      const response = await fetch(`/api/attendance/analytics?${params}`)
+      const response = await fetch(`/api/attendance/analytics?${params}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
       const result = await response.json()
 
       if (!result.success) {
@@ -49,7 +54,12 @@ export class AttendanceAnalyticsClient {
         limit: limit.toString()
       })
 
-      const response = await fetch(`/api/attendance/analytics?${params}`)
+      const response = await fetch(`/api/attendance/analytics?${params}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
       const result = await response.json()
 
       if (!result.success) {
@@ -77,7 +87,12 @@ export class AttendanceAnalyticsClient {
         days: days.toString()
       })
 
-      const response = await fetch(`/api/attendance/analytics?${params}`)
+      const response = await fetch(`/api/attendance/analytics?${params}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
       const result = await response.json()
 
       if (!result.success) {
@@ -111,7 +126,12 @@ export class AttendanceAnalyticsClient {
         type: 'live'
       })
 
-      const response = await fetch(`/api/attendance/analytics?${params}`)
+      const response = await fetch(`/api/attendance/analytics?${params}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
       const result = await response.json()
 
       if (!result.success) {
