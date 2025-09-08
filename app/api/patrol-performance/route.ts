@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     // Get attendance records for basic KPIs
     const { data: attendanceRecords, error: attendanceError } = await supabase
-      .from('attendance_records')
+      .from('shift_attendance')
       .select('*')
       .eq('user_id', guardId)
       .gte('timestamp', queryStartDate.toISOString())
