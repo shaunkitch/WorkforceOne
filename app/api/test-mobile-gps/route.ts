@@ -18,14 +18,22 @@ export async function POST() {
       timestamp: new Date().toISOString()
     }
     
-    // Send GPS data to our mobile API endpoint
-    const response = await fetch(`https://www.workforceone.co.za/api/mobile/gps`, {
+    // Send GPS data to our mobile API endpoint (use relative URL for local testing)
+    const baseUrl = process.env.NODE_ENV === 'development' 
+      ? `http://localhost:${process.env.PORT || 3001}`
+      : 'https://www.workforceone.co.za'
+    
+    const response = await fetch(`${baseUrl}/api/mobile/gps`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(testGPSData)
     })
+    
+    if (!response.ok) {
+      throw new Error(`GPS API responded with ${response.status}: ${response.statusText}`)
+    }
     
     const result = await response.json()
     
@@ -38,13 +46,17 @@ export async function POST() {
       user_id: '1282a420-0534-4586-8a96-70e6798a9079'
     }
     
-    const patrolResponse = await fetch(`https://www.workforceone.co.za/api/mobile/gps`, {
+    const patrolResponse = await fetch(`${baseUrl}/api/mobile/gps`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(testPatrolUpdate)
     })
+    
+    if (!patrolResponse.ok) {
+      throw new Error(`Patrol API responded with ${patrolResponse.status}: ${patrolResponse.statusText}`)
+    }
     
     const patrolResult = await patrolResponse.json()
     
