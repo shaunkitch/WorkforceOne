@@ -27,7 +27,8 @@ export async function GET() {
           name
         ),
         patrols:patrol_id (
-          status
+          status,
+          start_time
         )
       `)
       .gte('visited_at', thirtyMinutesAgo)

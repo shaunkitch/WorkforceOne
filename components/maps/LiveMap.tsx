@@ -66,9 +66,10 @@ export default function LiveMap() {
     
     if (!apiKey) {
       console.error('LiveMap: Google Maps API key is missing!')
-      setError('Google Maps API key is missing. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your environment variables.')
+      const error = new Error('Google Maps API key is missing. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your environment variables.')
+      setError(error.message)
       setLoading(false)
-      return
+      throw error // Re-throw to trigger fallback in useEffect
     }
 
     try {
@@ -116,6 +117,7 @@ export default function LiveMap() {
       console.error('LiveMap: Error initializing map:', error)
       setError(`Failed to initialize Google Maps: ${error}`)
       setLoading(false)
+      throw error // Re-throw to trigger fallback in useEffect
     }
   }, [])
 
@@ -262,15 +264,11 @@ export default function LiveMap() {
   }
 
   useEffect(() => {
-    // Skip Google Maps and use fallback directly due to quota issues
-    showFallbackView()
-    
-    // Set up auto-refresh
-    const interval = setInterval(() => {
+    // Try Google Maps first, fallback to table view if it fails
+    initializeMap().catch((error) => {
+      console.warn('Google Maps failed, using fallback view:', error)
       showFallbackView()
-    }, 30000) // Refresh every 30 seconds
-    
-    return () => clearInterval(interval)
+    })
   }, [])
 
   if (loading) {
