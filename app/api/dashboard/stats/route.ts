@@ -77,6 +77,61 @@ export async function GET() {
 
     if (recentIncidentsError) throw recentIncidentsError
 
+    // Get detailed incidents for admin panel
+    const { data: detailedIncidents, error: detailedIncidentsError } = await supabaseAdmin
+      .from('incidents')
+      .select(`
+        id,
+        title,
+        description,
+        status,
+        severity,
+        created_at,
+        location:locations(name),
+        reported_by:users(first_name, last_name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    if (detailedIncidentsError) throw detailedIncidentsError
+
+    // Analytics data - last 24 hours
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    
+    // Get completed patrols in last 24 hours
+    const { data: completedPatrols24h, error: completedPatrolsError } = await supabaseAdmin
+      .from('patrols')
+      .select('id')
+      .eq('status', 'completed')
+      .gte('end_time', yesterday)
+
+    if (completedPatrolsError) throw completedPatrolsError
+
+    // Get total scheduled patrols in last 24 hours
+    const { data: scheduledPatrols24h, error: scheduledPatrolsError } = await supabaseAdmin
+      .from('patrols')
+      .select('id')
+      .gte('created_at', yesterday)
+
+    if (scheduledPatrolsError) throw scheduledPatrolsError
+
+    // Get resolved incidents in last 24 hours
+    const { data: resolvedIncidents24h, error: resolvedIncidentsError } = await supabaseAdmin
+      .from('incidents')
+      .select('id')
+      .eq('status', 'resolved')
+      .gte('resolved_at', yesterday)
+
+    if (resolvedIncidentsError) throw resolvedIncidentsError
+
+    // Get total incidents in last 24 hours
+    const { data: totalIncidents24h, error: totalIncidentsError } = await supabaseAdmin
+      .from('incidents')
+      .select('id')
+      .gte('created_at', yesterday)
+
+    if (totalIncidentsError) throw totalIncidentsError
+
     // Calculate average response time (mock for now)
     const avgResponseTime = "3.8 min"
 
@@ -100,7 +155,15 @@ export async function GET() {
           timestamp: incident.created_at,
           status: incident.status
         })) || []
-      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5)
+      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5),
+      detailedIncidents: detailedIncidents || [],
+      analytics: {
+        patrolsCompleted: completedPatrols24h?.length || 0,
+        totalPatrols: scheduledPatrols24h?.length || 0,
+        incidentsResolved: resolvedIncidents24h?.length || 0,
+        totalIncidents: totalIncidents24h?.length || 0,
+        checkpointCoverage: Math.min(95, Math.round(((checkpoints?.length || 0) / Math.max(1, (scheduledPatrols24h?.length || 1) * 3)) * 100)) // Assume 3 checkpoints per patrol on average
+      }
     }
 
     return NextResponse.json({ success: true, data: stats })

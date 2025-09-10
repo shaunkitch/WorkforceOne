@@ -26,6 +26,23 @@ interface AdminStats {
     timestamp: string
     status: string
   }>
+  detailedIncidents: Array<{
+    id: string
+    title: string
+    description: string
+    status: string
+    severity: string
+    created_at: string
+    location: { name: string } | null
+    reported_by: { first_name: string; last_name: string } | null
+  }>
+  analytics: {
+    patrolsCompleted: number
+    totalPatrols: number
+    incidentsResolved: number
+    totalIncidents: number
+    checkpointCoverage: number
+  }
 }
 
 export default function AdminConsolePage() {
@@ -37,7 +54,15 @@ export default function AdminConsolePage() {
     checkpointsToday: 0,
     averageResponseTime: '0 min',
     systemStatus: 'loading',
-    recentActivity: []
+    recentActivity: [],
+    detailedIncidents: [],
+    analytics: {
+      patrolsCompleted: 0,
+      totalPatrols: 0,
+      incidentsResolved: 0,
+      totalIncidents: 0,
+      checkpointCoverage: 0
+    }
   })
   const [loading, setLoading] = useState(true)
 
@@ -238,38 +263,117 @@ export default function AdminConsolePage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-red-500 rounded-full mr-3"></div>
-                      <div>
-                        <p className="font-medium text-red-900">Unauthorized Access Attempt</p>
-                        <p className="text-sm text-red-700">Main Entrance - 2 minutes ago</p>
-                      </div>
+                  {loading ? (
+                    <div className="text-sm text-gray-500">Loading incidents...</div>
+                  ) : realTimeStats.detailedIncidents.length === 0 ? (
+                    <div className="text-center py-8">
+                      <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500">No incidents reported</p>
+                      <p className="text-sm text-gray-400">All systems operating normally</p>
                     </div>
-                    <Badge variant="destructive">Critical</Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-yellow-500 rounded-full mr-3"></div>
-                      <div>
-                        <p className="font-medium text-yellow-900">Equipment Malfunction</p>
-                        <p className="text-sm text-yellow-700">Camera System B - 15 minutes ago</p>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="border-yellow-200 text-yellow-700">Medium</Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
-                      <div>
-                        <p className="font-medium text-blue-900">Patrol Check Complete</p>
-                        <p className="text-sm text-blue-700">Parking Lot A - 22 minutes ago</p>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="border-blue-200 text-blue-700">Info</Badge>
-                  </div>
+                  ) : (
+                    realTimeStats.detailedIncidents.map((incident) => {
+                      const getSeverityStyle = (severity: string, status: string) => {
+                        if (status === 'resolved') return {
+                          bg: 'bg-green-50',
+                          border: 'border-green-200',
+                          dot: 'bg-green-500',
+                          text: 'text-green-900',
+                          subtitle: 'text-green-700'
+                        }
+                        
+                        switch (severity?.toLowerCase()) {
+                          case 'critical':
+                            return {
+                              bg: 'bg-red-50',
+                              border: 'border-red-200',
+                              dot: 'bg-red-500',
+                              text: 'text-red-900',
+                              subtitle: 'text-red-700'
+                            }
+                          case 'high':
+                            return {
+                              bg: 'bg-orange-50',
+                              border: 'border-orange-200',
+                              dot: 'bg-orange-500',
+                              text: 'text-orange-900',
+                              subtitle: 'text-orange-700'
+                            }
+                          case 'medium':
+                            return {
+                              bg: 'bg-yellow-50',
+                              border: 'border-yellow-200',
+                              dot: 'bg-yellow-500',
+                              text: 'text-yellow-900',
+                              subtitle: 'text-yellow-700'
+                            }
+                          default:
+                            return {
+                              bg: 'bg-blue-50',
+                              border: 'border-blue-200',
+                              dot: 'bg-blue-500',
+                              text: 'text-blue-900',
+                              subtitle: 'text-blue-700'
+                            }
+                        }
+                      }
+
+                      const getBadgeVariant = (severity: string, status: string) => {
+                        if (status === 'resolved') return 'default'
+                        if (severity === 'critical') return 'destructive'
+                        return 'outline'
+                      }
+
+                      const formatTime = (timestamp: string) => {
+                        const now = new Date()
+                        const incidentTime = new Date(timestamp)
+                        const diffMs = now.getTime() - incidentTime.getTime()
+                        const diffMinutes = Math.floor(diffMs / (1000 * 60))
+                        
+                        if (diffMinutes < 1) return 'Just now'
+                        if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`
+                        if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} hour${Math.floor(diffMinutes / 60) > 1 ? 's' : ''} ago`
+                        return `${Math.floor(diffMinutes / 1440)} day${Math.floor(diffMinutes / 1440) > 1 ? 's' : ''} ago`
+                      }
+
+                      const style = getSeverityStyle(incident.severity, incident.status)
+
+                      return (
+                        <div key={incident.id} className={`flex items-center justify-between p-4 ${style.bg} rounded-lg border ${style.border}`}>
+                          <div className="flex items-center flex-1">
+                            <div className={`w-3 h-3 ${style.dot} rounded-full mr-3 flex-shrink-0`}></div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-medium ${style.text} truncate`}>{incident.title}</p>
+                              <p className={`text-sm ${style.subtitle} truncate`}>
+                                {incident.location?.name || 'Unknown location'} • {formatTime(incident.created_at)}
+                              </p>
+                              {incident.description && (
+                                <p className={`text-xs ${style.subtitle} mt-1 line-clamp-2`}>
+                                  {incident.description}
+                                </p>
+                              )}
+                              {incident.reported_by && (
+                                <p className={`text-xs ${style.subtitle} mt-1`}>
+                                  Reported by {incident.reported_by.first_name} {incident.reported_by.last_name}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="ml-4 flex-shrink-0">
+                            <Badge 
+                              variant={getBadgeVariant(incident.severity, incident.status)}
+                              className={incident.severity === 'critical' ? '' : `border-${incident.severity === 'high' ? 'orange' : incident.severity === 'medium' ? 'yellow' : 'blue'}-200 text-${incident.severity === 'high' ? 'orange' : incident.severity === 'medium' ? 'yellow' : 'blue'}-700`}
+                            >
+                              {incident.severity?.charAt(0).toUpperCase() + incident.severity?.slice(1) || 'Low'}
+                            </Badge>
+                            <div className="text-xs text-gray-500 mt-1 capitalize">
+                              {incident.status}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -285,42 +389,61 @@ export default function AdminConsolePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Patrols Completed</span>
-                      <div className="flex items-center">
-                        <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                          <div className="bg-green-600 h-2 rounded-full" style={{ width: '92%' }}></div>
+                    {loading ? (
+                      <div className="text-sm text-gray-500">Loading metrics...</div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Patrols Completed</span>
+                          <div className="flex items-center">
+                            <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                              <div 
+                                className="bg-green-600 h-2 rounded-full" 
+                                style={{ width: `${realTimeStats.analytics.totalPatrols > 0 ? Math.round((realTimeStats.analytics.patrolsCompleted / realTimeStats.analytics.totalPatrols) * 100) : 0}%` }}
+                              ></div>
+                            </div>
+                            <span className="text-sm font-medium">
+                              {realTimeStats.analytics.patrolsCompleted}/{realTimeStats.analytics.totalPatrols}
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-sm font-medium">46/50</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Incidents Resolved</span>
-                      <div className="flex items-center">
-                        <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: '87%' }}></div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Incidents Resolved</span>
+                          <div className="flex items-center">
+                            <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                              <div 
+                                className="bg-blue-600 h-2 rounded-full" 
+                                style={{ width: `${realTimeStats.analytics.totalIncidents > 0 ? Math.round((realTimeStats.analytics.incidentsResolved / realTimeStats.analytics.totalIncidents) * 100) : 0}%` }}
+                              ></div>
+                            </div>
+                            <span className="text-sm font-medium">
+                              {realTimeStats.analytics.incidentsResolved}/{realTimeStats.analytics.totalIncidents}
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-sm font-medium">13/15</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Response Time Target</span>
-                      <div className="flex items-center">
-                        <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                          <div className="bg-yellow-600 h-2 rounded-full" style={{ width: '78%' }}></div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Response Time Target</span>
+                          <div className="flex items-center">
+                            <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                              <div className="bg-yellow-600 h-2 rounded-full" style={{ width: '76%' }}></div>
+                            </div>
+                            <span className="text-sm font-medium">{realTimeStats.averageResponseTime}/5.0 min</span>
+                          </div>
                         </div>
-                        <span className="text-sm font-medium">4.2/5.0 min</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Checkpoint Coverage</span>
-                      <div className="flex items-center">
-                        <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                          <div className="bg-green-600 h-2 rounded-full" style={{ width: '95%' }}></div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Checkpoint Coverage</span>
+                          <div className="flex items-center">
+                            <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                              <div 
+                                className="bg-green-600 h-2 rounded-full" 
+                                style={{ width: `${realTimeStats.analytics.checkpointCoverage}%` }}
+                              ></div>
+                            </div>
+                            <span className="text-sm font-medium">{realTimeStats.analytics.checkpointCoverage}%</span>
+                          </div>
                         </div>
-                        <span className="text-sm font-medium">95%</span>
-                      </div>
-                    </div>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>
