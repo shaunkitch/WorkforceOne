@@ -1,15 +1,66 @@
 'use client'
 
 import { useAuth, usePermissions } from '@/lib/auth/hooks'
+import { useEffect, useState } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Shield, MapPin, AlertTriangle, Users, Activity, Scan, Settings, UserCheck } from 'lucide-react'
+import { Shield, MapPin, AlertTriangle, Users, Activity, Scan, Settings, UserCheck, Clock } from 'lucide-react'
 import Link from 'next/link'
+
+interface DashboardStats {
+  activePatrols: number
+  openIncidents: number
+  guardsOnDuty: number
+  checkpointsToday: number
+  averageResponseTime: string
+  systemStatus: string
+  recentActivity: Array<{
+    type: string
+    message: string
+    timestamp: string
+    status: string
+  }>
+}
 
 export default function DashboardPage() {
   const { user } = useAuth()
   const permissions = usePermissions()
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
+    activePatrols: 0,
+    openIncidents: 0,
+    guardsOnDuty: 0,
+    checkpointsToday: 0,
+    averageResponseTime: '0 min',
+    systemStatus: 'loading',
+    recentActivity: []
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      try {
+        const response = await fetch('/api/dashboard/stats')
+        const result = await response.json()
+        
+        if (result.success) {
+          setDashboardStats(result.data)
+        } else {
+          console.error('Failed to fetch dashboard stats:', result.error)
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDashboardStats()
+    
+    // Refresh data every 30 seconds
+    const interval = setInterval(fetchDashboardStats, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <AdminLayout>
@@ -37,8 +88,8 @@ export default function DashboardPage() {
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">12</div>
-              <p className="text-xs text-muted-foreground">+2 from yesterday</p>
+              <div className="text-2xl font-bold">{loading ? '...' : dashboardStats.activePatrols}</div>
+              <p className="text-xs text-muted-foreground">Currently in progress</p>
             </CardContent>
           </Card>
 
@@ -48,8 +99,8 @@ export default function DashboardPage() {
               <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">3</div>
-              <p className="text-xs text-muted-foreground">-1 from yesterday</p>
+              <div className="text-2xl font-bold">{loading ? '...' : dashboardStats.openIncidents}</div>
+              <p className="text-xs text-muted-foreground">Requiring attention</p>
             </CardContent>
           </Card>
 
@@ -59,8 +110,8 @@ export default function DashboardPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">28</div>
-              <p className="text-xs text-muted-foreground">Across 8 locations</p>
+              <div className="text-2xl font-bold">{loading ? '...' : dashboardStats.guardsOnDuty}</div>
+              <p className="text-xs text-muted-foreground">Active in last 2 hours</p>
             </CardContent>
           </Card>
 
@@ -70,7 +121,7 @@ export default function DashboardPage() {
               <MapPin className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">156</div>
+              <div className="text-2xl font-bold">{loading ? '...' : dashboardStats.checkpointsToday}</div>
               <p className="text-xs text-muted-foreground">Completed today</p>
             </CardContent>
           </Card>
@@ -244,21 +295,41 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm text-gray-600">Patrol #P-2024-001 completed checkpoint at Main Entrance</span>
-                <span className="text-xs text-gray-400">2 minutes ago</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                <span className="text-sm text-gray-600">Incident I-2024-005 reported at Parking Lot B</span>
-                <span className="text-xs text-gray-400">15 minutes ago</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm text-gray-600">Guard John Smith started shift at Location A</span>
-                <span className="text-xs text-gray-400">1 hour ago</span>
-              </div>
+              {loading ? (
+                <div className="text-sm text-gray-500">Loading recent activity...</div>
+              ) : dashboardStats.recentActivity.length === 0 ? (
+                <div className="text-sm text-gray-500">No recent activity</div>
+              ) : (
+                dashboardStats.recentActivity.map((activity, index) => {
+                  const getStatusColor = (type: string, status: string) => {
+                    if (type === 'incident') {
+                      return status === 'open' ? 'bg-red-500' : 
+                             status === 'investigating' ? 'bg-orange-500' : 'bg-green-500'
+                    }
+                    return 'bg-green-500'
+                  }
+
+                  const formatTime = (timestamp: string) => {
+                    const now = new Date()
+                    const activityTime = new Date(timestamp)
+                    const diffMs = now.getTime() - activityTime.getTime()
+                    const diffMinutes = Math.floor(diffMs / (1000 * 60))
+                    
+                    if (diffMinutes < 1) return 'Just now'
+                    if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`
+                    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} hour${Math.floor(diffMinutes / 60) > 1 ? 's' : ''} ago`
+                    return `${Math.floor(diffMinutes / 1440)} day${Math.floor(diffMinutes / 1440) > 1 ? 's' : ''} ago`
+                  }
+
+                  return (
+                    <div key={index} className="flex items-center space-x-3">
+                      <div className={`w-2 h-2 rounded-full ${getStatusColor(activity.type, activity.status)}`}></div>
+                      <span className="text-sm text-gray-600 flex-1">{activity.message}</span>
+                      <span className="text-xs text-gray-400">{formatTime(activity.timestamp)}</span>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </CardContent>
         </Card>

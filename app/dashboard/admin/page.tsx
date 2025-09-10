@@ -13,28 +13,56 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Shield, Users, MapPin, AlertTriangle, TrendingUp, Activity, QrCode, Zap, Clock, UserCheck } from 'lucide-react'
 import BackupRequestAlert from '@/components/admin/BackupRequestAlert'
 
+interface AdminStats {
+  activePatrols: number
+  openIncidents: number
+  guardsOnDuty: number
+  checkpointsToday: number
+  averageResponseTime: string
+  systemStatus: string
+  recentActivity: Array<{
+    type: string
+    message: string
+    timestamp: string
+    status: string
+  }>
+}
+
 export default function AdminConsolePage() {
   const { user } = useAuth()
-  const [realTimeStats, setRealTimeStats] = useState({
-    activeGuards: 12,
-    ongoingPatrols: 8,
-    openIncidents: 3,
-    criticalAlerts: 1,
-    averageResponseTime: '4.2 min',
-    systemStatus: 'operational'
+  const [realTimeStats, setRealTimeStats] = useState<AdminStats>({
+    activePatrols: 0,
+    openIncidents: 0,
+    guardsOnDuty: 0,
+    checkpointsToday: 0,
+    averageResponseTime: '0 min',
+    systemStatus: 'loading',
+    recentActivity: []
   })
+  const [loading, setLoading] = useState(true)
 
-  // Simulate real-time updates
   useEffect(() => {
-    const interval = setInterval(() => {
-      setRealTimeStats(prev => ({
-        ...prev,
-        activeGuards: prev.activeGuards + Math.floor(Math.random() * 3) - 1,
-        ongoingPatrols: Math.max(0, prev.ongoingPatrols + Math.floor(Math.random() * 3) - 1),
-        openIncidents: Math.max(0, prev.openIncidents + Math.floor(Math.random() * 2) - 1),
-      }))
-    }, 10000) // Update every 10 seconds
+    const fetchAdminStats = async () => {
+      try {
+        const response = await fetch('/api/dashboard/stats')
+        const result = await response.json()
+        
+        if (result.success) {
+          setRealTimeStats(result.data)
+        } else {
+          console.error('Failed to fetch admin stats:', result.error)
+        }
+      } catch (error) {
+        console.error('Error fetching admin stats:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
 
+    fetchAdminStats()
+    
+    // Refresh data every 30 seconds for real-time updates
+    const interval = setInterval(fetchAdminStats, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -62,16 +90,16 @@ export default function AdminConsolePage() {
           </div>
         </div>
 
-        {/* Critical Alerts */}
-        {realTimeStats.criticalAlerts > 0 && (
+        {/* Critical Alerts - Only show if there are open incidents */}
+        {realTimeStats.openIncidents > 5 && (
           <Alert variant="destructive" className="mb-6">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="flex items-center justify-between">
               <span>
-                {realTimeStats.criticalAlerts} critical alert{realTimeStats.criticalAlerts > 1 ? 's' : ''} require immediate attention
+                {realTimeStats.openIncidents} incident{realTimeStats.openIncidents > 1 ? 's' : ''} require immediate attention
               </span>
               <Button variant="outline" size="sm">
-                View Alerts
+                View Incidents
               </Button>
             </AlertDescription>
           </Alert>
@@ -83,7 +111,7 @@ export default function AdminConsolePage() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div>
                 <CardTitle className="text-sm font-medium text-green-800">Active Guards</CardTitle>
-                <div className="text-3xl font-bold text-green-600 mt-2">{realTimeStats.activeGuards}</div>
+                <div className="text-3xl font-bold text-green-600 mt-2">{loading ? '...' : realTimeStats.guardsOnDuty}</div>
               </div>
               <div className="p-3 bg-green-100 rounded-full">
                 <UserCheck className="h-6 w-6 text-green-600" />
@@ -92,7 +120,7 @@ export default function AdminConsolePage() {
             <CardContent>
               <p className="text-sm text-green-700">Currently on duty</p>
               <div className="w-full bg-green-200 rounded-full h-2 mt-2">
-                <div className="bg-green-600 h-2 rounded-full" style={{ width: '78%' }}></div>
+                <div className="bg-green-600 h-2 rounded-full" style={{ width: `${Math.min(100, (realTimeStats.guardsOnDuty / 30) * 100)}%` }}></div>
               </div>
             </CardContent>
           </Card>
@@ -101,7 +129,7 @@ export default function AdminConsolePage() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div>
                 <CardTitle className="text-sm font-medium text-blue-800">Active Patrols</CardTitle>
-                <div className="text-3xl font-bold text-blue-600 mt-2">{realTimeStats.ongoingPatrols}</div>
+                <div className="text-3xl font-bold text-blue-600 mt-2">{loading ? '...' : realTimeStats.activePatrols}</div>
               </div>
               <div className="p-3 bg-blue-100 rounded-full">
                 <MapPin className="h-6 w-6 text-blue-600" />
@@ -110,7 +138,7 @@ export default function AdminConsolePage() {
             <CardContent>
               <p className="text-sm text-blue-700">Routes in progress</p>
               <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
-                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '65%' }}></div>
+                <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${Math.min(100, (realTimeStats.activePatrols / 15) * 100)}%` }}></div>
               </div>
             </CardContent>
           </Card>
@@ -120,7 +148,7 @@ export default function AdminConsolePage() {
               <div>
                 <CardTitle className={`text-sm font-medium ${realTimeStats.openIncidents > 5 ? 'text-red-800' : realTimeStats.openIncidents > 0 ? 'text-yellow-800' : 'text-green-800'}`}>Open Incidents</CardTitle>
                 <div className={`text-3xl font-bold mt-2 ${realTimeStats.openIncidents > 5 ? 'text-red-600' : realTimeStats.openIncidents > 0 ? 'text-yellow-600' : 'text-green-600'}`}>
-                  {realTimeStats.openIncidents}
+                  {loading ? '...' : realTimeStats.openIncidents}
                 </div>
               </div>
               <div className={`p-3 rounded-full ${realTimeStats.openIncidents > 5 ? 'bg-red-100' : realTimeStats.openIncidents > 0 ? 'bg-yellow-100' : 'bg-green-100'}`}>
@@ -142,7 +170,7 @@ export default function AdminConsolePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Response Time</p>
-                  <p className="text-2xl font-bold text-gray-900">{realTimeStats.averageResponseTime}</p>
+                  <p className="text-2xl font-bold text-gray-900">{loading ? '...' : realTimeStats.averageResponseTime}</p>
                   <p className="text-xs text-gray-500">Average response</p>
                 </div>
                 <div className="p-3 bg-purple-100 rounded-full">
@@ -172,13 +200,13 @@ export default function AdminConsolePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Active Alerts</p>
-                  <p className={`text-2xl font-bold ${realTimeStats.criticalAlerts > 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                    {realTimeStats.criticalAlerts}
+                  <p className={`text-2xl font-bold ${realTimeStats.openIncidents > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                    {loading ? '...' : realTimeStats.openIncidents}
                   </p>
-                  <p className="text-xs text-gray-500">Critical priority</p>
+                  <p className="text-xs text-gray-500">Open incidents</p>
                 </div>
-                <div className={`p-3 rounded-full ${realTimeStats.criticalAlerts > 0 ? 'bg-red-100' : 'bg-gray-100'}`}>
-                  <Zap className={`h-6 w-6 ${realTimeStats.criticalAlerts > 0 ? 'text-red-600' : 'text-gray-400'}`} />
+                <div className={`p-3 rounded-full ${realTimeStats.openIncidents > 0 ? 'bg-red-100' : 'bg-gray-100'}`}>
+                  <Zap className={`h-6 w-6 ${realTimeStats.openIncidents > 0 ? 'text-red-600' : 'text-gray-400'}`} />
                 </div>
               </div>
             </CardContent>
