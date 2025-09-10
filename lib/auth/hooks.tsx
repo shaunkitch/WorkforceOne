@@ -50,14 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change:', event, session?.user?.id)
       if (session?.user) {
         // Only fetch profile if we don't already have this user ID
         if (currentUserRef.current !== session.user.id) {
           currentUserRef.current = session.user.id
           await fetchUserProfile(session.user)
         } else {
-          console.log('Same user already loaded, skipping profile fetch')
         }
       } else {
         currentUserRef.current = null
@@ -72,7 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = useCallback(async (authUser: User) => {
     if (fetchingProfile) {
-      console.log('Profile fetch already in progress, skipping...')
       return
     }
     
@@ -84,7 +81,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Always use the API endpoint to avoid RLS recursion
       if (true) {
-        console.log('Using API endpoint for profile fetch...')
         
         try {
           const response = await fetch(`/api/auth/profile?userId=${authUser.id}`)
@@ -93,20 +89,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const result = await response.json()
             profile = result.profile
             error = null
-            console.log('API endpoint succeeded, profile:', profile)
           } else {
             const errorResult = await response.json()
-            console.error('API profile fetch error:', errorResult)
             setLoading(false)
             return
           }
         } catch (apiError) {
-          console.error('API endpoint failed:', apiError)
           setLoading(false)
           return
         }
       } else if (error) {
-        console.error('Error fetching user profile:', {
           error,
           code: error?.code,
           message: error?.message,
@@ -118,7 +110,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!profile) {
-        console.error('Profile is null or undefined - redirecting to setup')
         // Redirect to setup profile page if user is authenticated but has no profile
         if (typeof window !== 'undefined' && window.location.pathname !== '/setup-profile') {
           window.location.href = '/setup-profile'
@@ -127,7 +118,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      console.log('Creating authUserData from profile:', profile)
 
       const authUserData: AuthUser = {
         id: profile.id,
@@ -149,7 +139,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPermissions(new PermissionChecker(profile.role))
       }
     } catch (error) {
-      console.error('Error in fetchUserProfile:', error)
     } finally {
       setLoading(false)
       setFetchingProfile(false)
@@ -158,32 +147,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      console.log('Attempting signInWithPassword...')
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      console.log('SignIn response:', { 
         user: data.user?.id, 
         session: !!data.session,
         error: error?.message 
       })
 
       if (error) {
-        console.error('Sign in error:', error)
         return { error }
       }
 
       if (!data.session || !data.user) {
-        console.error('Sign in failed: no session or user returned')
         return { error: { message: 'Authentication failed - no session created' } }
       }
 
-      console.log('Sign in successful, session created')
       return { error: null }
     } catch (err) {
-      console.error('Sign in exception:', err)
       return { error: { message: 'Authentication failed due to network error' } }
     }
   }
@@ -191,7 +174,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, userData: Partial<AuthUser>) => {
     try {
       // Use the smart registration API that works with triggers
-      console.log('Using smart registration approach...')
       
       const response = await fetch('/api/auth/smart-register', {
         method: 'POST',
@@ -205,17 +187,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }),
       })
 
-      console.log('Registration API response received:', response.status)
       const result = await response.json()
-      console.log('Registration API result:', result)
 
       if (!response.ok) {
-        console.error('Registration API failed:', result.error)
         return { error: { message: result.error } }
       }
 
       // After successful registration, sign in the user
-      console.log('Registration successful, attempting sign in...')
       
       try {
         const { data: signInData, error: signInError } = await Promise.race([
@@ -229,7 +207,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ]) as any
 
         if (signInError) {
-          console.error('Sign-in error after registration:', signInError)
           // Registration succeeded but sign-in failed - user can manually sign in
           return { 
             error: null,
@@ -238,14 +215,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        console.log('Sign-in successful:', signInData?.user?.id)
         
         // Registration and sign-in successful
-        console.log('Smart registration and sign-in completed successfully!')
         return { error: null }
         
       } catch (signInTimeoutError) {
-        console.error('Sign-in timeout or error:', signInTimeoutError)
         // Registration succeeded but sign-in had issues - user can manually sign in
         return { 
           error: null,
@@ -255,7 +229,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
     } catch (error) {
-      console.error('Registration error:', error)
       return { error: { message: 'Registration failed due to network or server error' } }
     }
   }

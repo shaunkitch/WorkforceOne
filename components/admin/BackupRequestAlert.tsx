@@ -48,29 +48,24 @@ export default function BackupRequestAlert() {
   const [loading, setLoading] = useState(false)
 
   const fetchBackupRequests = async () => {
-    console.log('🚨 [BACKUP ALERT DEBUG] Fetching requests for user:', {
       user: user ? 'exists' : 'null',
       organization_id: user?.organization_id,
       user_email: user?.email
     })
     
     if (!user?.organization_id) {
-      console.log('🚨 [BACKUP ALERT DEBUG] No organization_id, skipping fetch')
       return
     }
     
     try {
       const url = `/api/backup-requests?organization_id=${user.organization_id}`
-      console.log('🚨 [BACKUP ALERT DEBUG] Fetching from:', url)
       
       const response = await fetch(url)
-      console.log('🚨 [BACKUP ALERT DEBUG] Response status:', response.status)
       
       if (response.ok) {
         const data = await response.json()
         const requests = data.backupRequests || []
         
-        console.log('🚨 [BACKUP ALERT DEBUG] Raw requests:', requests.length, requests)
         
         // Fetch guard details for each request
         const requestsWithGuards = await Promise.all(requests.map(async (request: any) => {
@@ -98,21 +93,16 @@ export default function BackupRequestAlert() {
           }
         }))
         
-        console.log('🚨 [BACKUP ALERT DEBUG] Processed requests:', requestsWithGuards.length, requestsWithGuards)
         setBackupRequests(requestsWithGuards)
       } else {
-        console.error('🚨 [BACKUP ALERT DEBUG] Request failed:', response.status, await response.text())
       }
     } catch (error) {
-      console.error('🚨 [BACKUP ALERT DEBUG] Fetch error:', error)
     }
   }
 
   const updateRequestStatus = async (requestId: string, status: 'acknowledged' | 'resolved', notes?: string) => {
-    console.log('🚨 [BACKUP ALERT DEBUG] Button clicked:', { requestId, status, notes, user: user ? 'exists' : 'null' })
     
     if (!user) {
-      console.log('🚨 [BACKUP ALERT DEBUG] No user found, aborting update')
       return
     }
     
@@ -126,7 +116,6 @@ export default function BackupRequestAlert() {
         resolution_notes: notes
       }
       
-      console.log('🚨 [BACKUP ALERT DEBUG] Sending PUT request:', requestData)
       
       const response = await fetch('/api/backup-requests', {
         method: 'PUT',
@@ -136,26 +125,19 @@ export default function BackupRequestAlert() {
         body: JSON.stringify(requestData)
       })
       
-      console.log('🚨 [BACKUP ALERT DEBUG] PUT Response status:', response.status)
       
       const responseData = await response.json()
-      console.log('🚨 [BACKUP ALERT DEBUG] PUT Response data:', responseData)
 
       if (response.ok) {
-        console.log('🚨 [BACKUP ALERT DEBUG] Update successful, refreshing requests')
         // Refresh the backup requests
         fetchBackupRequests()
         
         if (status === 'acknowledged') {
-          console.log('Backup request acknowledged by admin')
         } else if (status === 'resolved') {
-          console.log('Backup request resolved by admin')
         }
       } else {
-        console.error('🚨 [BACKUP ALERT DEBUG] Update failed:', responseData)
       }
     } catch (error) {
-      console.error('🚨 [BACKUP ALERT DEBUG] Error updating backup request:', error)
     } finally {
       setLoading(false)
     }
@@ -180,7 +162,6 @@ export default function BackupRequestAlert() {
       try {
         const audio = new Audio('/sounds/alert.mp3')
         audio.play().catch((audioError) => {
-          console.log('Audio alert not available, trying fallback beep')
           // Fallback: Use Web Audio API for a simple beep
           try {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)()
@@ -197,29 +178,24 @@ export default function BackupRequestAlert() {
             oscillator.start()
             oscillator.stop(audioContext.currentTime + 0.5)
           } catch (beepError) {
-            console.log('No audio capabilities available')
           }
         })
       } catch (error) {
-        console.log('Audio not available')
       }
     }
   }, [backupRequests])
 
   const urgentRequests = backupRequests.filter(req => req.status === 'active' || req.status === 'acknowledged')
   
-  console.log('🚨 [BACKUP ALERT DEBUG] Render check:', {
     total_requests: backupRequests.length,
     urgent_requests: urgentRequests.length,
     all_statuses: backupRequests.map(r => r.status)
   })
   
   if (urgentRequests.length === 0) {
-    console.log('🚨 [BACKUP ALERT DEBUG] No urgent requests, hiding component')
     return null // Don't show anything if no urgent requests
   }
   
-  console.log('🚨 [BACKUP ALERT DEBUG] Showing alerts for:', urgentRequests.length, 'requests')
 
   return (
     <div className="fixed top-4 right-4 z-50 space-y-4 max-w-md">
