@@ -255,12 +255,15 @@ export default function LandingPage() {
             </div>
             <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-8 shadow-2xl">
               <div className="bg-white rounded-xl p-4">
-                <div className="aspect-[9/16] bg-gray-100 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <Shield className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-                    <p className="text-gray-600">App Screenshots</p>
-                    <p className="text-sm text-gray-500 mt-2">Coming Soon</p>
-                  </div>
+                <div className="aspect-[9/16] bg-gray-100 rounded-lg overflow-hidden">
+                  <Image
+                    src="/images/app-screenshot.jpg"
+                    alt="WorkforceOne Dashboard Screenshot"
+                    width={400}
+                    height={711}
+                    className="w-full h-full object-cover"
+                    priority
+                  />
                 </div>
               </div>
             </div>
