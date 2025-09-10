@@ -48,11 +48,6 @@ export default function BackupRequestAlert() {
   const [loading, setLoading] = useState(false)
 
   const fetchBackupRequests = async () => {
-      user: user ? 'exists' : 'null',
-      organization_id: user?.organization_id,
-      user_email: user?.email
-    })
-    
     if (!user?.organization_id) {
       return
     }
@@ -186,11 +181,6 @@ export default function BackupRequestAlert() {
   }, [backupRequests])
 
   const urgentRequests = backupRequests.filter(req => req.status === 'active' || req.status === 'acknowledged')
-  
-    total_requests: backupRequests.length,
-    urgent_requests: urgentRequests.length,
-    all_statuses: backupRequests.map(r => r.status)
-  })
   
   if (urgentRequests.length === 0) {
     return null // Don't show anything if no urgent requests

@@ -99,12 +99,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
       } else if (error) {
-          error,
-          code: error?.code,
-          message: error?.message,
-          details: error?.details,
-          hint: error?.hint
-        })
         setLoading(false)
         return
       }
@@ -150,11 +144,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
-      })
-
-        user: data.user?.id, 
-        session: !!data.session,
-        error: error?.message 
       })
 
       if (error) {
