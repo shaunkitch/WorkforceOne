@@ -10,14 +10,19 @@ export async function GET(request: NextRequest) {
     const organizationId = searchParams.get('organization_id')
     const days = parseInt(searchParams.get('days') || '30')
 
-    // For debugging - allow fetching statistics for all organizations if no organization_id provided
-    // TODO: Re-enable organization filtering for production
+    if (!organizationId) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'organization_id is required' 
+      }, { status: 400 })
+    }
 
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
     const { data: patrols, error } = await supabaseAdmin
       .from('patrols')
       .select('status, checkpoints_completed, total_checkpoints')
+      .eq('organization_id', organizationId)
       .gte('created_at', startDate)
 
     if (error) {

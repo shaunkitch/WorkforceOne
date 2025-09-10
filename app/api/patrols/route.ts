@@ -12,8 +12,12 @@ export async function GET(request: NextRequest) {
     const guardId = searchParams.get('guard_id')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    // For debugging - allow fetching all patrols if no organization_id provided
-    // TODO: Re-enable organization filtering for production
+    if (!organizationId) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'organization_id is required' 
+      }, { status: 400 })
+    }
 
     let query = supabaseAdmin
       .from('patrols')
@@ -27,6 +31,7 @@ export async function GET(request: NextRequest) {
           estimated_duration
         )
       `)
+      .eq('organization_id', organizationId)
       .order('created_at', { ascending: false })
       .limit(limit)
 
