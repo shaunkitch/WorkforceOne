@@ -75,10 +75,8 @@ export default function AdminConsolePage() {
         if (result.success) {
           setRealTimeStats(result.data)
         } else {
-          console.error('Failed to fetch admin stats:', result.error)
         }
       } catch (error) {
-        console.error('Error fetching admin stats:', error)
       } finally {
         setLoading(false)
       }

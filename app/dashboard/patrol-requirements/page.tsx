@@ -54,25 +54,19 @@ export default function PatrolRequirementsPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null)
 
   useEffect(() => {
-    console.log('🎯 PatrolRequirements useEffect - authLoading:', authLoading, 'user:', user?.email || 'none')
-    
     if (!authLoading && !user) {
-      console.log('🔐 No user found, redirecting to login')
       router.push('/auth/login')
     } else if (user) {
-      console.log('✅ User authenticated, loading data for organization:', user.organization_id)
       loadData()
     }
   }, [user, authLoading, router])
 
   const loadData = async () => {
     try {
-      console.log('🔄 Starting loadData for user:', user?.email, 'organization:', user?.organization_id)
       setLoading(true)
       await Promise.all([loadRoutes(), loadRequirements()])
-      console.log('✅ loadData completed successfully')
     } catch (error) {
-      console.error('❌ Error in loadData:', error)
+      // Handle error silently or show user-friendly message
     } finally {
       setLoading(false)
     }
@@ -80,10 +74,8 @@ export default function PatrolRequirementsPage() {
 
   const loadRoutes = async () => {
     try {
-      console.log('🔍 Loading patrol routes via API for organization:', user?.organization_id)
       
       if (!user?.organization_id) {
-        console.warn('⚠️ No organization_id found for user:', user)
         setRoutes([])
         return
       }
@@ -97,30 +89,24 @@ export default function PatrolRequirementsPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.error('❌ API request failed:', response.status, errorData)
         setRoutes([])
         return
       }
 
       const { routes } = await response.json()
-      console.log('✅ Loaded patrol routes via API:', routes)
       setRoutes(routes || [])
       
       if (!routes || routes.length === 0) {
-        console.warn('⚠️ No active patrol routes found for organization:', user.organization_id)
       }
     } catch (error) {
-      console.error('❌ Fatal error in loadRoutes:', error)
       setRoutes([])
     }
   }
 
   const loadRequirements = async () => {
     try {
-      console.log('🔍 Loading patrol requirements for organization:', user?.organization_id)
       
       if (!user?.organization_id) {
-        console.warn('⚠️ No organization_id found for user:', user)
         setRequirements([])
         return
       }
@@ -132,12 +118,10 @@ export default function PatrolRequirementsPage() {
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('❌ Error loading requirements:', error)
         setRequirements([])
         return
       }
 
-      console.log('✅ Loaded patrol requirements:', data)
 
       // Map route IDs to route names using the already loaded routes data
       const formattedData = (data || []).map(req => {
@@ -148,10 +132,8 @@ export default function PatrolRequirementsPage() {
         }
       })
 
-      console.log('✅ Formatted requirements data with route names:', formattedData)
       setRequirements(formattedData)
     } catch (error) {
-      console.error('❌ Fatal error in loadRequirements:', error)
       setRequirements([])
     }
   }
@@ -186,7 +168,6 @@ export default function PatrolRequirementsPage() {
       }
 
       if (result.error) {
-        console.error('Error saving requirement:', result.error)
         alert('Error saving patrol requirement: ' + result.error.message)
         return
       }
@@ -206,7 +187,6 @@ export default function PatrolRequirementsPage() {
       await loadRequirements()
 
     } catch (error) {
-      console.error('Error saving requirement:', error)
       alert('Error saving patrol requirement')
     }
   }
@@ -231,7 +211,6 @@ export default function PatrolRequirementsPage() {
         .eq('id', id)
 
       if (error) {
-        console.error('Error deleting requirement:', error)
         alert('Error deleting patrol requirement')
         return
       }
@@ -239,7 +218,6 @@ export default function PatrolRequirementsPage() {
       await loadRequirements()
       setShowDeleteDialog(null)
     } catch (error) {
-      console.error('Error deleting requirement:', error)
       alert('Error deleting patrol requirement')
     }
   }
@@ -285,30 +263,6 @@ export default function PatrolRequirementsPage() {
           </div>
         </div>
 
-        {/* Debug Information */}
-        {process.env.NODE_ENV === 'development' && (
-          <Card className="bg-yellow-50 border-yellow-200">
-            <CardContent className="pt-4">
-              <div className="text-sm text-yellow-800">
-                <div className="font-semibold mb-2">🐛 Debug Information:</div>
-                <div>User Email: {user?.email || 'N/A'}</div>
-                <div>Organization ID: {user?.organization_id || 'N/A'}</div>
-                <div>Auth Loading: {authLoading ? 'Yes' : 'No'}</div>
-                <div>Routes Loaded: {routes.length}</div>
-                <div>Requirements Loaded: {requirements.length}</div>
-                <div>Loading: {loading ? 'Yes' : 'No'}</div>
-                {routes.length > 0 && (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer">Available Routes</summary>
-                    <pre className="mt-1 text-xs bg-yellow-100 p-2 rounded overflow-auto max-h-32">
-                      {JSON.stringify(routes, null, 2)}
-                    </pre>
-                  </details>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Configuration Form */}
         <Card>
