@@ -72,38 +72,31 @@ export class PatrolService {
     limit: number = 50
   ): Promise<Patrol[]> {
     try {
-      let query = supabase
-        .from('patrols')
-        .select(`
-          *,
-          guard:guard_id (first_name, last_name, email),
-          route:route_id (
-            name,
-            description,
-            checkpoints,
-            estimated_duration
-          )
-        `)
-        .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false })
-        .limit(limit)
+      const params = new URLSearchParams({
+        organization_id: organizationId,
+        limit: limit.toString()
+      })
 
       if (status) {
-        query = query.eq('status', status)
+        params.set('status', status)
       }
 
       if (guardId) {
-        query = query.eq('guard_id', guardId)
+        params.set('guard_id', guardId)
       }
 
-      const { data, error } = await query
+      const response = await fetch(`/api/patrols?${params}`, {
+        credentials: 'include'
+      })
 
-      if (error) {
-        console.error('Error fetching patrols:', error)
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Error fetching patrols:', result)
         return []
       }
 
-      return data || []
+      return result.patrols || []
     } catch (error) {
       console.error('Error in getPatrols:', error)
       return []
@@ -507,15 +500,19 @@ export class PatrolService {
     completionRate: number
   }> {
     try {
-      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+      const params = new URLSearchParams({
+        organization_id: organizationId,
+        days: days.toString()
+      })
 
-      const { data: patrols, error } = await supabase
-        .from('patrols')
-        .select('status, checkpoints_completed, total_checkpoints')
-        .eq('organization_id', organizationId)
-        .gte('created_at', startDate)
+      const response = await fetch(`/api/patrols/statistics?${params}`, {
+        credentials: 'include'
+      })
 
-      if (error || !patrols) {
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Error fetching patrol statistics:', result)
         return {
           totalPatrols: 0,
           completedPatrols: 0,
@@ -525,20 +522,7 @@ export class PatrolService {
         }
       }
 
-      const totalPatrols = patrols.length
-      const completedPatrols = patrols.filter(p => p.status === 'completed').length
-      const activePatrols = patrols.filter(p => p.status === 'in_progress').length
-      const totalCheckpoints = patrols.reduce((sum, p) => sum + (p.checkpoints_completed || 0), 0)
-      const averageCheckpoints = totalPatrols > 0 ? Math.round(totalCheckpoints / totalPatrols * 10) / 10 : 0
-      const completionRate = totalPatrols > 0 ? Math.round((completedPatrols / totalPatrols) * 100) : 0
-
-      return {
-        totalPatrols,
-        completedPatrols,
-        activePatrols,
-        averageCheckpoints,
-        completionRate
-      }
+      return result.statistics
     } catch (error) {
       console.error('Error in getPatrolStatistics:', error)
       return {
