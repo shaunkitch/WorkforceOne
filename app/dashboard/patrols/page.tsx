@@ -17,6 +17,7 @@ import CreateRouteModal from '@/components/patrols/CreateRouteModal'
 import AssignRouteModal from '@/components/patrols/AssignRouteModal'
 import EditRouteModal from '@/components/patrols/EditRouteModal'
 import RoutesPrintModal from '@/components/patrols/RoutesPrintModal'
+import PatrolDetailsModal from '@/components/patrols/PatrolDetailsModal'
 
 export default function PatrolsPage() {
   const { user, loading, signOut } = useAuth()
@@ -37,7 +38,9 @@ export default function PatrolsPage() {
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [showEditRouteModal, setShowEditRouteModal] = useState(false)
   const [showPrintModal, setShowPrintModal] = useState(false)
+  const [showPatrolDetailsModal, setShowPatrolDetailsModal] = useState(false)
   const [selectedRoute, setSelectedRoute] = useState<PatrolRoute | null>(null)
+  const [selectedPatrol, setSelectedPatrol] = useState<Patrol | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   useEffect(() => {
@@ -129,6 +132,11 @@ export default function PatrolsPage() {
       console.error('Error deleting route:', error)
       alert('Failed to delete route. Please try again.')
     }
+  }
+
+  const handleViewPatrolDetails = (patrol: Patrol) => {
+    setSelectedPatrol(patrol)
+    setShowPatrolDetailsModal(true)
   }
 
 
@@ -328,7 +336,11 @@ export default function PatrolsPage() {
                             {getStatusBadge(patrol.status)}
                           </TableCell>
                           <TableCell>
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleViewPatrolDetails(patrol)}
+                            >
                               View Details
                             </Button>
                           </TableCell>
@@ -401,7 +413,11 @@ export default function PatrolsPage() {
                             {getStatusBadge(patrol.status)}
                           </TableCell>
                           <TableCell>
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleViewPatrolDetails(patrol)}
+                            >
                               View Details
                             </Button>
                           </TableCell>
@@ -552,6 +568,15 @@ export default function PatrolsPage() {
         }}
         route={selectedRoute}
         organizationId={user.organization_id}
+      />
+
+      <PatrolDetailsModal
+        isOpen={showPatrolDetailsModal}
+        onClose={() => {
+          setShowPatrolDetailsModal(false)
+          setSelectedPatrol(null)
+        }}
+        patrol={selectedPatrol}
       />
     </AdminLayout>
   )
